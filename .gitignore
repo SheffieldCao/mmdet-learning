@@ -145,6 +145,7 @@ outputs/*
 # *.pth.tar
 
 cityscapes/*
+configs/_others_/*
 
 pycocotools_test.py
 
