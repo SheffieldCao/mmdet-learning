@@ -9,6 +9,8 @@ from numpy import random
 from mmdet.apis import init_detector, inference_detector
 
 
+DATASET_PREFIX = '/mnt/sdf/caoxu/'
+
 def parse_args():
     parser = argparse.ArgumentParser(description='Infer a detector')
     parser.add_argument('config_file', help='eval config file path')
@@ -35,7 +37,7 @@ def infer_single_image(model, img, model_cfg):
     # test a single image and show the results
     result = inference_detector(model, img)
     # save the visualization results to image files
-    model.show_result(img, result, out_file='~/datasets/demo_{2}/{0}_{1}.jpg'.format('result', name, model_cfg))
+    model.show_result(img, result, out_file=DATASET_PREFIX+'datasets/demo_{2}/{0}_{1}.jpg'.format('result', name, model_cfg))
 
 def main():
     args = parse_args()
@@ -43,10 +45,12 @@ def main():
     # args.checkpoint_file = 'outputs/mask_rcnn_x50_32x4d_dw_gn_cs_8x2_cs_1024/epoch_3.pth'
 
     model_cfg = '_'.join(args.checkpoint_file.split('/')[-2:]).replace('.pth', '')
+    if not osp.exists(DATASET_PREFIX+'datasets/demo_{}'.format(model_cfg)):
+        os.mkdir(DATASET_PREFIX+'datasets/demo_{}'.format(model_cfg))
     if not osp.exists(osp.join('cityscapes','demo_{}'.format(model_cfg))):
         os.mkdir(osp.join('cityscapes','demo_{}'.format(model_cfg)))
     # build the model from a config file and a checkpoint file
-    model = init_detector(args.config_file, args.checkpoint_file, device='cuda:1')
+    model = init_detector(args.config_file, args.checkpoint_file, device='cuda:{}'.format(args.gpu_id))
     for img in tqdm(glob('cityscapes/demo/*.png')):
         infer_single_image(model, img, model_cfg)
 
