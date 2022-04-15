@@ -73,7 +73,10 @@ def plot_curve(log_dicts, args):
                 for epoch in epochs:
                     ys += log_dict[epoch][metric]
                 ax = plt.gca()
-                ax.set_xticks(xs)
+                xs_ticks = xs
+                if len(xs) >= 18:
+                    xs_ticks = xs[xs % 3 == 0]
+                ax.set_xticks(xs_ticks)
                 plt.xlabel('epoch')
                 plt.plot(xs, ys, label=legend[i * num_metrics + j], marker='o')
             else:
@@ -174,8 +177,11 @@ def load_json_logs(json_logs):
     log_dicts = [dict() for _ in json_logs]
     for json_log, log_dict in zip(json_logs, log_dicts):
         with open(json_log, 'r') as log_file:
-            for line in log_file:
+            for i,line in enumerate(log_file):
                 log = json.loads(line.strip())
+                # skip the first training info line
+                if i == 0:
+                    continue
                 # skip lines without `epoch` field
                 if 'epoch' not in log:
                     continue
