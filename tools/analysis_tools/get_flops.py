@@ -16,6 +16,7 @@ except ImportError:
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a detector')
     parser.add_argument('config', help='train config file path')
+    parser.add_argument('--gpu_id', type=int, help='sepcific a GPU')
     parser.add_argument(
         '--shape',
         type=int,
@@ -69,7 +70,8 @@ def main():
         train_cfg=cfg.get('train_cfg'),
         test_cfg=cfg.get('test_cfg'))
     if torch.cuda.is_available():
-        model.cuda()
+        # model.cuda()
+        model.to('cuda:{}'.format(args.gpu_id))
     model.eval()
 
     if hasattr(model, 'forward_dummy'):

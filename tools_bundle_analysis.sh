@@ -6,7 +6,7 @@ LOSS_IMAGE=${LOSS_IMAGE:-losses.png}
 MAP_IMAGE=${MAP_IMAGE:-mAPs.png}
 
 # Model Complexity
-python tools/analysis_tools/get_flops.py $CONFIG
+python tools/analysis_tools/get_flops.py $CONFIG --gpu_id 7
 
 # Avg Training speed
 python tools/results_analysis.py cal_train_time $JSON

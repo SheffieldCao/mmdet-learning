@@ -89,15 +89,17 @@ def plot_curve(log_dicts, args):
                     'interval is less than iterations of one epoch.')
 
             if 'mAP' in metric:
-                xs = np.arange(
-                    int(args.start_epoch),
-                    max(epochs) + 1, int(args.eval_interval))
+                if len(epochs) == max(epochs):
+                    xs = np.arange(
+                        int(args.start_epoch),
+                        max(epochs) + 1, int(args.eval_interval))
+                else:
+                    xs = np.array(epochs)
                 ys = []
                 for epoch in epochs:
                     ys += log_dict[epoch][metric]
                 ax = plt.gca()
                 ax.tick_params(axis = 'both', which='major', labelsize = 21)
-
                 xs_ticks = xs
                 if len(xs) > 14:
                     xs_ticks = xs[xs % 4 == 0]
@@ -120,7 +122,7 @@ def plot_curve(log_dicts, args):
                 plt.tick_params(labelsize=font_size)
                 plt.xlabel('iter', fontsize=font_size)
                 plt.plot(
-                    xs, ys, label=legend[i * num_metrics + j], linewidth=0.5)
+                    xs, ys, label=legend[i * num_metrics + j], linewidth=2)
             plt.legend(fontsize=font_size)
         if args.title is not None:
             title = '_'.join(args.title.split('/')[:-1])
