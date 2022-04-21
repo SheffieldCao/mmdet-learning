@@ -202,3 +202,148 @@ class FPN(BaseModule):
                     else:
                         outs.append(self.fpn_convs[i](outs[-1]))
         return tuple(outs)
+
+class ConvTransModule(ConvModule):
+    """A deconv block that bundles conv/norm/activation layers.
+
+    Args:
+        in_channels (int): Number of channels in the input feature map.
+            Same as that in ``nn._ConvNd``.
+        out_channels (int): Number of channels produced by the convolution.
+            Same as that in ``nn._ConvNd``.
+        kernel_size (int | tuple[int]): Size of the convolving kernel.
+            Same as that in ``nn._ConvNd``.
+        stride (int | tuple[int]): Stride of the convolution.
+            Same as that in ``nn._ConvNd``.
+        padding (int | tuple[int]): Zero-padding added to both sides of
+            the input. Same as that in ``nn._ConvNd``.
+        dilation (int | tuple[int]): Spacing between kernel elements.
+            Same as that in ``nn._ConvNd``.
+        groups (int): Number of blocked connections from input channels to
+            output channels. Same as that in ``nn._ConvNd``.
+        bias (bool | str): If specified as `auto`, it will be decided by the
+            norm_cfg. Bias will be set as True if `norm_cfg` is None, otherwise
+            False. Default: "auto".
+        conv_cfg (dict): Config dict for convolution layer. Default: None,
+            which means using conv2d.
+        norm_cfg (dict): Config dict for normalization layer. Default: None.
+        act_cfg (dict): Config dict for activation layer.
+            Default: dict(type='ReLU').
+        inplace (bool): Whether to use inplace mode for activation.
+            Default: True.
+        padding_mode (str): If the `padding_mode` has not been supported by
+            current `Conv2d` in PyTorch, we will use our own padding layer
+            instead. Currently, we support ['zeros', 'circular'] with official
+            implementation and ['reflect'] with our own implementation.
+            Default: 'zeros'.
+        order (tuple[str]): The order of conv/norm/activation layers. It is a
+            sequence of "conv", "norm" and "act". Common examples are
+            ("conv", "norm", "act") and ("act", "conv", "norm").
+            Default: ('conv', 'norm', 'act').
+    """
+    def __init__(self,
+                 in_channels,
+                 out_channels,
+                 kernel_size,
+                 stride=2,
+                 padding=1,
+                 output_padding=1,
+                 dilation=1,
+                 groups=1,
+                 bias='auto',
+                 conv_cfg=None,
+                 norm_cfg=None,
+                 act_cfg=dict(type='ReLU'),
+                 inplace=True,
+                 order=('conv', 'norm', 'act')):
+        super(ConvTransModule, self).__init__(in_channels, out_channels, kernel_size, padding=padding, groups=groups, bias=bias, conv_cfg=conv_cfg, norm_cfg=norm_cfg, act_cfg=act_cfg, inplace=inplace, order=order)
+        self.conv = nn.ConvTranspose2d(
+                in_channels, out_channels, kernel_size, stride, self.padding, output_padding=output_padding, groups=self.groups, bias=self.with_bias, dilation=dilation)
+        # export the attributes of self.conv to a higher level for convenience
+        self.in_channels = self.conv.in_channels
+        self.out_channels = self.conv.out_channels
+        self.kernel_size = self.conv.kernel_size
+        self.stride = self.conv.stride
+        self.padding = padding
+        self.dilation = self.conv.dilation
+        self.transposed = self.conv.transposed
+        self.output_padding = self.conv.output_padding
+
+@NECKS.register_module()
+class SFP(BaseModule):
+    r"""Simple Feature Pyramid Neck.
+
+    This is an implementation of paper `Exploring Plain Vision Transformer 
+    Backbones for Object Detection <https://arxiv.org/abs/2203.16527>`_.
+
+    Args:
+        in_channel (int): Number of input channel of the last scale.
+        out_channels (int): Number of output channels (used at each scale).
+        num_outs (int): Number of output scales.
+        strides (list[int]): Conv strides.
+        no_norm_on_lateral (bool): Whether to apply norm on lateral.
+            Default: False.
+        conv_cfg (dict): Config dict for convolution layer. Default: None.
+        norm_cfg (dict): Config dict for normalization layer. Default: None.
+        act_cfg (dict): Config dict for activation layer in ConvModule.
+            Default: None.
+        init_cfg (dict or list[dict], optional): Initialization config dict.
+    """
+    def __init__(self,
+                 in_channel,
+                 out_channels,
+                 num_outs,
+                 strides=[2,1,1/2,1/4],
+                 no_norm_on_lateral=False,
+                 conv_cfg=None,
+                 norm_cfg=None,
+                 act_cfg=None,
+                 init_cfg=dict(
+                     type='Xavier', layer='Conv2d', distribution='uniform')):
+        super(SFP, self).__init__(init_cfg)
+        assert isinstance(in_channel, int)
+        self.in_channel = in_channel
+        self.out_channels = out_channels
+        assert len(strides) == num_outs
+        self.no_norm_on_lateral = no_norm_on_lateral
+        self.fp16_enabled = False
+        self.lateral_convs = nn.ModuleList()
+
+        for stride in strides:
+            if stride >= 1:
+                l_conv = ConvModule(
+                    in_channel,
+                    out_channels,
+                    3,
+                    stride=stride,
+                    padding=1,
+                    conv_cfg=conv_cfg,
+                    norm_cfg=norm_cfg if not self.no_norm_on_lateral else None,
+                    act_cfg=act_cfg,
+                    inplace=False)
+            else:
+                l_conv = ConvTransModule(
+                    in_channel,
+                    out_channels,
+                    3,
+                    stride=int(1/stride),
+                    padding=1,
+                    output_padding=int(1/stride)-1,
+                    conv_cfg=conv_cfg,
+                    norm_cfg=norm_cfg if not self.no_norm_on_lateral else None,
+                    act_cfg=act_cfg,
+                    inplace=False
+                )
+
+            self.lateral_convs.append(l_conv)
+
+    def forward(self, inputs):
+        """Forward function."""
+        assert len(inputs) == 1
+
+        # build outputs(top down results)
+        outs = [
+            lateral_conv(inputs[0])
+            for lateral_conv in self.lateral_convs
+        ]
+        return tuple(outs)
