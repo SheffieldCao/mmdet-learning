@@ -46,6 +46,8 @@ class BasicBlockv2(BasicBlock):
         
         assert getattr(self.norm_cfg, 'type', None) != 'LN', " ` norm_cfg ` not supports ` LN `"
 
+        self.init_weights()
+
     def init_weights(self):
         logger = get_root_logger()
         logger.warn(f'The last layer of {self.__class__.__name__} is initialized by zeros.')
@@ -80,10 +82,12 @@ class Bottleneckv2(Bottleneck):
 
         assert getattr(self.norm_cfg, 'type', None) != 'LN', " ` norm_cfg ` not supports ` LN `"
 
+        self.init_weights()
+
     def init_weights(self):
         logger = get_root_logger()
         logger.warn(f'The last layer of {self.__class__.__name__} is initialized by zeros.')
-        super(Bottleneckv2, self).init_weights()
+        # super(Bottleneckv2, self).init_weights()
         
         constant_init(self.conv3, val=.0)
 
