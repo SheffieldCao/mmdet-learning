@@ -161,14 +161,15 @@ class GPFormerSequence(BaseModule):
                 init_cfg=None)
             self.blocks.append(block)
         
+        assert embed_dims % 4 == 0, "` embed_dims ` must be a multiple of 4"
         if depth <= 3 :
             self.global_propagation = Bottleneckv2(
-                embed_dims, embed_dims//3, with_cp=with_cp, conv_cfg=gp_conv_cfg, norm_cfg=gp_norm_cfg, 
+                embed_dims, embed_dims//4, with_cp=with_cp, conv_cfg=gp_conv_cfg, norm_cfg=gp_norm_cfg, 
                 act_cfg=gp_act_cfg
                 )
         elif depth > 3:
             self.global_propagation = BasicBlockv2(
-                embed_dims, embed_dims//3, with_cp=with_cp, conv_cfg=gp_conv_cfg, norm_cfg=gp_norm_cfg, 
+                embed_dims, embed_dims, with_cp=with_cp, conv_cfg=gp_conv_cfg, norm_cfg=gp_norm_cfg, 
                 act_cfg=gp_act_cfg
                 )
 
@@ -176,8 +177,10 @@ class GPFormerSequence(BaseModule):
         for block in self.blocks:
             x = block(x, hw_shape)
         
-        x = nchw_to_nlc(self.global_propagation(nlc_to_nchw(x, hw_shape)))
+        x = self.global_propagation(nlc_to_nchw(x, hw_shape))
+        
         assert (x.size()[2], x.size()[3]) == hw_shape, "ResBlock output shape is not equal to input shape"
+        x = nchw_to_nlc(x)
 
         return x, hw_shape, x, hw_shape
 
