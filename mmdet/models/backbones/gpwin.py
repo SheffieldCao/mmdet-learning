@@ -1,6 +1,4 @@
-# Copyright (c) OpenMMLab. All rights reserved.
 import warnings
-from collections import OrderedDict
 from copy import deepcopy
 
 import torch
@@ -8,7 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from mmcv.cnn import build_norm_layer, constant_init, trunc_normal_init
 from mmcv.cnn.utils.weight_init import trunc_normal_, constant_init
-from mmcv.runner import BaseModule, ModuleList, _load_checkpoint
+from mmcv.runner import BaseModule, ModuleList
 from mmcv.utils import to_2tuple
 from mmcv.cnn import build_activation_layer
 
@@ -91,7 +89,7 @@ class Bottleneckv2(Bottleneck):
         
         constant_init(self.conv3, val=.0)
 
-class GPFormerSequence(BaseModule):
+class GPWinBlockSequence(BaseModule):
     """Implements one stage in Swin Transformer.
 
     Args:
@@ -190,7 +188,7 @@ class GPFormerSequence(BaseModule):
 
 
 @BACKBONES.register_module()
-class GPFormer(BaseModule):
+class GPWin(BaseModule):
     """
     
     """
@@ -242,7 +240,7 @@ class GPFormer(BaseModule):
         else:
             raise TypeError('pretrained must be a str or None')
 
-        super(GPFormer, self).__init__(init_cfg=init_cfg)
+        super(GPWin, self).__init__(init_cfg=init_cfg)
 
         num_layers = len(depths)
         self.use_abs_pos_embed = use_abs_pos_embed
@@ -273,7 +271,7 @@ class GPFormer(BaseModule):
 
         self.stages = ModuleList()
         for i in range(num_layers):
-            stage = GPFormerSequence(
+            stage = GPWinBlockSequence(
                 embed_dims=embed_dims,
                 num_heads=num_heads[i],
                 feedforward_channels=mlp_ratio * embed_dims,
@@ -299,7 +297,7 @@ class GPFormer(BaseModule):
 
     def train(self, mode=True):
         """Convert the model into training mode while keep layers freezed."""
-        super(GPFormer, self).train(mode)
+        super(GPWin, self).train(mode)
         self._freeze_stages()
 
     def _freeze_stages(self):
