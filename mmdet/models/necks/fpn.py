@@ -207,18 +207,9 @@ class FPN(BaseModule):
         return tuple(outs)
 
 class ConvModule(nn.Module):
-    """A conv block that bundles conv/norm/activation layers.
+    """Reimplements of a conv block that bundles conv/norm/activation layers.
 
-    This block simplifies the usage of convolution layers, which are commonly
-    used with a norm layer (e.g., BatchNorm) and activation layer (e.g., ReLU).
-    It is based upon three build methods: `build_conv_layer()`,
-    `build_norm_layer()` and `build_activation_layer()`.
-
-    Besides, we add some additional features in this module.
-    1. Automatically set `bias` of the conv layer.
-    2. Spectral norm is supported.
-    3. More padding modes are supported. Before PyTorch 1.5, nn.Conv2d only
-    supports zero and circular padding, and we add "reflect" padding mode.
+    Modified from mmcv.cnn.bricks.conv_module.ConvModule
 
     Args:
         in_channels (int): Number of channels in the input feature map.
@@ -404,13 +395,13 @@ class DeConvModule(BaseModule):
             Same as that in ``nn._ConvNd``.
         padding (int | tuple[int]): Zero-padding added to both sides of
             the input. Same as that in ``nn._ConvNd``.
+        output_padding (int | tuple[int]): Additional size added to one 
+            side of each dimension in the output shape. Default: 0
         dilation (int | tuple[int]): Spacing between kernel elements.
             Same as that in ``nn._ConvNd``.
         groups (int): Number of blocked connections from input channels to
             output channels. Same as that in ``nn._ConvNd``.
-        bias (bool | str): If specified as `auto`, it will be decided by the
-            norm_cfg. Bias will be set as True if `norm_cfg` is None, otherwise
-            False. Default: "auto".
+        with_bias (bool): Default: "False".
         conv_cfg (dict): Config dict for convolution layer. Default: None,
             which means using conv2d.
         norm_cfg (dict): Config dict for normalization layer. Default: None.
@@ -418,8 +409,6 @@ class DeConvModule(BaseModule):
             Default: dict(type='ReLU').
         inplace (bool): Whether to use inplace mode for activation.
             Default: True.
-        with_spectral_norm (bool): Whether use spectral norm in conv module.
-            Default: False.
         padding_mode (str): If the `padding_mode` has not been supported by
             current `Conv2d` in PyTorch, we will use our own padding layer
             instead. Currently, we support ['zeros', 'circular'] with official
@@ -572,9 +561,8 @@ class SFP(BaseModule):
         out_channels (int): Number of output channels (used at each scale).
         num_outs (int): Number of output scales.
         strides (list[int]): Conv strides.
-        no_norm_on_lateral (bool): Whether to apply norm on lateral.
-            Default: False.
         conv_cfg (dict): Config dict for convolution layer. Default: None.
+        deconv_norm_cfg (dict): Config dict for deconvolution block normalization layer. Default: None.
         norm_cfg (dict): Config dict for normalization layer. Default: None.
         act_cfg (dict): Config dict for activation layer in ConvModule.
             Default: None.
@@ -585,7 +573,6 @@ class SFP(BaseModule):
                  out_channels,
                  num_outs,
                  strides=[2,1,1/2,1/4],
-                 no_norm_on_lateral=False,
                  conv_cfg=None,
                  deconv_norm_cfg=None,
                  norm_cfg=None,
@@ -597,8 +584,6 @@ class SFP(BaseModule):
         self.in_channel = in_channel
         self.out_channels = out_channels
         assert len(strides) == num_outs
-        self.no_norm_on_lateral = no_norm_on_lateral
-        self.fp16_enabled = False
         self.lateral_convs = nn.ModuleList()
 
         for stride in strides:
