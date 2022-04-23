@@ -17,7 +17,7 @@ model = dict(
         attn_drop_rate=0.,
         drop_path_rate=0.2,
         gp_conv_cfg=conv_cfg,
-        gp_norm_cfg=dict(type='LN'),
+        gp_norm_cfg=norm_cfg,
     ),
     neck=dict(
         type='SFP',
@@ -44,6 +44,7 @@ load_from=None
 
 # dataset settings
 img_h, img_w = 512, 1024
+# img_h, img_w = 1024, 2048
 dataset_type = 'CityscapesDataset'
 data_root = 'cityscapes/'
 img_norm_cfg = dict(
