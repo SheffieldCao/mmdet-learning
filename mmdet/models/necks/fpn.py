@@ -278,7 +278,7 @@ class ConvModule(nn.Module):
         assert norm_cfg is None or isinstance(norm_cfg, dict)
         assert act_cfg is None or isinstance(act_cfg, dict)
         official_padding_mode = ['zeros', 'circular']
-        assert padding_mode in official_padding_mode
+        assert padding_mode in official_padding_mode, "Unknown padding mode: {}".format(padding_mode)
         self.conv_cfg = conv_cfg
         self.norm_cfg = norm_cfg
         self.act_cfg = act_cfg
@@ -294,8 +294,6 @@ class ConvModule(nn.Module):
             bias = not self.with_norm
         self.with_bias = bias
 
-        # reset padding to 0 for conv module
-        conv_padding = 0 if self.with_explicit_padding else padding
         # build convolution layer
         self.conv = build_conv_layer(
             conv_cfg,
@@ -303,7 +301,7 @@ class ConvModule(nn.Module):
             out_channels,
             kernel_size,
             stride=stride,
-            padding=conv_padding,
+            padding=padding,
             dilation=dilation,
             groups=groups,
             bias=bias)
@@ -317,9 +315,6 @@ class ConvModule(nn.Module):
         self.transposed = self.conv.transposed
         self.output_padding = self.conv.output_padding
         self.groups = self.conv.groups
-
-        if self.with_spectral_norm:
-            self.conv = nn.utils.spectral_norm(self.conv)
 
         # build normalization layers
         if self.with_norm:
@@ -598,8 +593,8 @@ class SFP(BaseModule):
                  strides=[2,1,1/2,1/4],
                  no_norm_on_lateral=False,
                  conv_cfg=None,
-                 deconv_norm_cfg=dict(type='LN', num_features=768),
-                 norm_cfg=dict(type='LN', num_features=256),
+                 deconv_norm_cfg=dict(type='LN'),
+                 norm_cfg=dict(type='LN'),
                  act_cfg=None,
                  init_cfg=dict(
                      type='Xavier', layer='Conv2d', distribution='uniform')):
@@ -623,7 +618,7 @@ class SFP(BaseModule):
                 for _ in range(int(math.log(1/stride, 2))):
                     l_conv.append(
                         DeConvModule(self.in_channel, self.in_channel, kernel_size=3, stride=1, padding=1, output_padding=1,  
-                            conv_cfg=conv_cfg, norm_cfg=deconv_norm_cfg, act_cfg=act_cfg, inplace=False, order=('conv', 'norm', 'act'))
+                            conv_cfg=conv_cfg, norm_cfg=deconv_norm_cfg, act_cfg=act_cfg, inplace=False)
                     )
 
             l_conv.append(
