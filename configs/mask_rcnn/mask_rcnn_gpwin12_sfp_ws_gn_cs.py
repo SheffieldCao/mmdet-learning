@@ -4,13 +4,12 @@ _base_ = [ './mask_rcnn_gpwin_sfp_cs.py']
 model = dict(
     backbone=dict(
         type='GPWin',
-        window_size=16,
+        window_size=8,
         depths=(3, 3, 3, 3),
         num_heads=(12, 12, 12, 12),
         drop_rate=0.3,
         attn_drop_rate=0.,
         drop_path_rate=0.2,
-        gp_norm_cfg=dict(type='LN'),
     ),
 )
 
