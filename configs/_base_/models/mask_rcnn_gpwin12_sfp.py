@@ -4,7 +4,7 @@ model = dict(
     backbone=dict(
         type='GPWin',
         in_channels=3,
-        embed_dim=768,
+        embed_dims=768,
         patch_size=16,
         window_size=16,
         mlp_ratio=4,
@@ -16,7 +16,7 @@ model = dict(
         drop_rate=0.,
         attn_drop_rate=0.,
         drop_path_rate=0.2,
-        gp_conv_cfg=None,
+        gp_conv_cfg=dict(type='Conv'),
         gp_norm_cfg=dict(type='BN'),
         gp_act_cfg=dict(type='GELU'),
         act_cfg=dict(type='GELU'),
