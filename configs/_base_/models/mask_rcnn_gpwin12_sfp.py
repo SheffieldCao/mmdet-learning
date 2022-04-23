@@ -30,6 +30,9 @@ model = dict(
         out_channels=256,
         num_outs=4,
         strides=[2,1,1/2,1/4],
+        conv_cfg=dict(type='Conv'),
+        norm_cfg=dict(type='LN'),
+        act_cfg=dict(type='GELU'),
         ),
     rpn_head=dict(
         type='RPNHead',
