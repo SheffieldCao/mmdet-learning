@@ -3,7 +3,7 @@ from copy import deepcopy
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+
 from mmcv.cnn import build_norm_layer, constant_init, trunc_normal_init
 from mmcv.cnn.utils.weight_init import trunc_normal_, constant_init
 from mmcv.runner import BaseModule, ModuleList
@@ -415,4 +415,4 @@ class GPWin(BaseModule):
         out = out.view(-1, *out_hw_shape, 
                     self.num_features).permute(0, 3, 1, 2).contiguous()
 
-        return out
+        return (out,)

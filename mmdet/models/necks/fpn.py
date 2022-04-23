@@ -375,20 +375,18 @@ class ConvModule(nn.Module):
         if self.with_norm:
             constant_init(self.norm, 1, bias=0)
 
-    def forward(self, x, activate=True, norm=True):
+    def forward(self, x):
         for layer in self.order:
             if layer == 'conv':
-                if self.with_explicit_padding:
-                    x = self.padding_layer(x)
                 x = self.conv(x)
-            elif layer == 'norm' and norm and self.with_norm:
+            elif layer == 'norm' and self.with_norm:
                 if getattr(self.norm_cfg, 'type') == 'LN':
-                    x = nchw_to_nlc(x)
                     hw_shape = x.size()[2:]
+                    x = nchw_to_nlc(x)
                 x = self.norm(x)
                 if getattr(self.norm_cfg, 'type') == 'LN':
                     x = nlc_to_nchw(x, hw_shape)
-            elif layer == 'act' and activate and self.with_activation:
+            elif layer == 'act' and self.with_activation:
                 x = self.activate(x)
         return x
 
@@ -464,8 +462,6 @@ class DeConvModule(BaseModule):
         self.order = order
         assert isinstance(self.order, tuple) and len(self.order) == 3
         assert set(order) == set(['conv', 'norm', 'act'])
-        self.groups = groups
-        self.output_padding = output_padding
         self.with_norm = norm_cfg is not None
         self.with_activation = act_cfg is not None
 
@@ -475,8 +471,8 @@ class DeConvModule(BaseModule):
 
         # build convolution layer
         self.conv = nn.ConvTranspose2d(
-                in_channels, out_channels, kernel_size, stride, self.padding, output_padding=self.output_padding, 
-                groups=self.groups, bias=self.with_bias, dilation=dilation, padding_mode=padding_mode)
+                in_channels, out_channels, kernel_size, stride, padding, output_padding=output_padding, 
+                groups=groups, bias=self.with_bias, dilation=dilation, padding_mode=padding_mode)
 
         # export the attributes of self.conv to a higher level for convenience
         self.in_channels = self.conv.in_channels
@@ -548,20 +544,18 @@ class DeConvModule(BaseModule):
         if self.with_norm:
             constant_init(self.norm, 1, bias=0)
 
-    def forward(self, x, activate=True, norm=True):
+    def forward(self, x):
         for layer in self.order:
             if layer == 'conv':
-                if self.with_explicit_padding:
-                    x = self.padding_layer(x)
                 x = self.conv(x)
-            elif layer == 'norm' and norm and self.with_norm:
+            elif layer == 'norm' and self.with_norm:
                 if getattr(self.norm_cfg, 'type') == 'LN':
-                    x = nchw_to_nlc(x)
                     hw_shape = x.size()[2:]
+                    x = nchw_to_nlc(x)
                 x = self.norm(x)
                 if getattr(self.norm_cfg, 'type') == 'LN':
                     x = nlc_to_nchw(x, hw_shape)
-            elif layer == 'act' and activate and self.with_activation:
+            elif layer == 'act' and self.with_activation:
                 x = self.activate(x)
         return x
 
@@ -593,8 +587,8 @@ class SFP(BaseModule):
                  strides=[2,1,1/2,1/4],
                  no_norm_on_lateral=False,
                  conv_cfg=None,
-                 deconv_norm_cfg=dict(type='LN'),
-                 norm_cfg=dict(type='LN'),
+                 deconv_norm_cfg=None,
+                 norm_cfg=None,
                  act_cfg=None,
                  init_cfg=dict(
                      type='Xavier', layer='Conv2d', distribution='uniform')):
@@ -608,34 +602,42 @@ class SFP(BaseModule):
         self.lateral_convs = nn.ModuleList()
 
         for stride in strides:
-            l_conv = nn.ModuleList()
             if stride > 1:
                 assert stride == 2, 'only support stride == 2.'
-                l_conv.append(nn.MaxPool2d(kernel_size=2, stride=2))
-            elif stride == 1:
-                l_conv = nn.ModuleList()
-            else:
-                for _ in range(int(math.log(1/stride, 2))):
-                    l_conv.append(
-                        DeConvModule(self.in_channel, self.in_channel, kernel_size=3, stride=1, padding=1, output_padding=1,  
-                            conv_cfg=conv_cfg, norm_cfg=deconv_norm_cfg, act_cfg=act_cfg, inplace=False)
-                    )
-
-            l_conv.append(
-                    [
-                        ConvModule(self.in_channel, self.out_channels, 1, conv_cfg=conv_cfg, act_cfg=None, inplace=False),
-                        ConvModule(self.out_channels, self.out_channels, 3, padding=1, conv_cfg=conv_cfg, norm_cfg=norm_cfg, act_cfg=None, inplace=False),
-                    ]
+                l_conv = nn.Sequential(
+                    nn.MaxPool2d(kernel_size=2, stride=2),
+                    ConvModule(self.in_channel, self.out_channels, 1, conv_cfg=conv_cfg, act_cfg=None, inplace=False),
+                    ConvModule(self.out_channels, self.out_channels, 3, padding=1, conv_cfg=conv_cfg, norm_cfg=norm_cfg, act_cfg=None, inplace=False),
                 )
+            elif stride == 1:
+                l_conv = nn.Sequential(
+                    ConvModule(self.in_channel, self.out_channels, 1, conv_cfg=conv_cfg, act_cfg=None, inplace=False),
+                    ConvModule(self.out_channels, self.out_channels, 3, padding=1, conv_cfg=conv_cfg, norm_cfg=norm_cfg, act_cfg=None, inplace=False),
+                )
+            elif stride == 1/2:
+                l_conv = nn.Sequential(
+                    DeConvModule(self.in_channel, self.in_channel, kernel_size=3, stride=2, padding=1, output_padding=1, conv_cfg=conv_cfg, 
+                        norm_cfg=deconv_norm_cfg, act_cfg=act_cfg, inplace=False),
+                    ConvModule(self.in_channel, self.out_channels, 1, conv_cfg=conv_cfg, act_cfg=None, inplace=False),
+                    ConvModule(self.out_channels, self.out_channels, 3, padding=1, conv_cfg=conv_cfg, norm_cfg=norm_cfg, act_cfg=None, inplace=False),
+                )
+            elif stride == 1/4:
+                l_conv = nn.Sequential(
+                    DeConvModule(self.in_channel, self.in_channel, kernel_size=3, stride=2, padding=1, output_padding=1, conv_cfg=conv_cfg, 
+                        norm_cfg=deconv_norm_cfg, act_cfg=act_cfg, inplace=False),
+                    DeConvModule(self.in_channel, self.in_channel, kernel_size=3, stride=2, padding=1, output_padding=1, conv_cfg=conv_cfg, 
+                        norm_cfg=deconv_norm_cfg, act_cfg=act_cfg, inplace=False),
+                    ConvModule(self.in_channel, self.out_channels, 1, conv_cfg=conv_cfg, act_cfg=None, inplace=False),
+                    ConvModule(self.out_channels, self.out_channels, 3, padding=1, conv_cfg=conv_cfg, norm_cfg=norm_cfg, act_cfg=None, inplace=False),
+                )         
 
             self.lateral_convs.append(l_conv)
 
     def forward(self, inputs):
         """Forward function."""
-        assert len(inputs) == 1
+        assert len(inputs) == 1 and isinstance(inputs, tuple)
 
         # build outputs(top down results)
-        outs = [
-            lateral_conv(inputs[0]) for lateral_conv in self.lateral_convs
-        ]
+        outs = [lateral_conv(inputs[0]) for lateral_conv in self.lateral_convs]
+
         return tuple(outs)
