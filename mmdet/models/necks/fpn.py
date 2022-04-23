@@ -438,7 +438,7 @@ class DeConvModule(BaseModule):
             Default: ('conv', 'norm', 'act').
     """
 
-    _abbr_ = 'conv_block'
+    _abbr_ = 'deconv_block'
 
     def __init__(self,
                  in_channels,
@@ -451,12 +451,12 @@ class DeConvModule(BaseModule):
                  groups=1,
                  with_bias=False,
                  conv_cfg=None,
-                 norm_cfg=dict(type='LN'),
+                 norm_cfg=None,
                  act_cfg=dict(type='GELU'),
                  inplace=True,
                  padding_mode='zeros',
                  order=('conv', 'norm', 'act')):
-        super(ConvModule, self).__init__()
+        super(DeConvModule, self).__init__()
         assert conv_cfg is None or isinstance(conv_cfg, dict)
         assert norm_cfg is None or isinstance(norm_cfg, dict)
         assert act_cfg is None or isinstance(act_cfg, dict)
@@ -598,8 +598,8 @@ class SFP(BaseModule):
                  strides=[2,1,1/2,1/4],
                  no_norm_on_lateral=False,
                  conv_cfg=None,
-                 deconv_norm_cfg=None,
-                 norm_cfg=None,
+                 deconv_norm_cfg=dict(type='LN', num_features=768),
+                 norm_cfg=dict(type='LN', num_features=256),
                  act_cfg=None,
                  init_cfg=dict(
                      type='Xavier', layer='Conv2d', distribution='uniform')):
