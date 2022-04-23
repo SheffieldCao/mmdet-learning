@@ -90,7 +90,7 @@ class Bottleneckv2(Bottleneck):
         constant_init(self.conv3, val=.0)
 
 class GPWinBlockSequence(BaseModule):
-    """Implements one stage in Swin Transformer.
+    """Implements one stage in GPWin Transformer.
 
     Args:
         embed_dims (int): The feature dimension.
@@ -105,8 +105,12 @@ class GPWinBlockSequence(BaseModule):
         attn_drop_rate (float, optional): Attention dropout rate. Default: 0.
         drop_path_rate (float | list[float], optional): Stochastic depth
             rate. Default: 0.
-        downsample (BaseModule | None, optional): The downsample operation
-            module. Default: None.
+        gp_conv_cfg (dict, optional): The config dict of activation function.
+            Default: None.
+        gp_norm_cfg (dict, optional): The config dict of normalization.
+            Default: dict(type='BN'),
+        gp_act_cfg (dict, optional): The config dict of activation.
+            Default: dict(type='GELU'),
         act_cfg (dict, optional): The config dict of activation function.
             Default: dict(type='GELU').
         norm_cfg (dict, optional): The config dict of normalization.
@@ -189,8 +193,50 @@ class GPWinBlockSequence(BaseModule):
 
 @BACKBONES.register_module()
 class GPWin(BaseModule):
-    """
-    
+    """Implements of GPWin Transformer.
+
+    This is an implementation of paper `Exploring Plain Vision Transformer 
+    Backbones for Object Detection <https://arxiv.org/abs/2203.16527>`_.
+
+    Args:
+        pretrain_img_size (int | tuple, optional): The input image size. Default: 224.
+        in_channels (int, optional): The input channels. Default: 3.
+        embed_dims (int, optional): The feature dimension. Default: 768.
+        patch_size (int, optional): The patch size. Default: 16.
+        window_size (int, optional): The local window scale. Default: 16.
+        mlp_ratios (int, optional): The ratio of hidden layers in MLP. Default: 4.
+        depth (list[int], optional): The number of layers in each Transformer stage. Default: (3, 3, 3, 3).
+        num_heads (list[int], optional): Parallel attention heads. Default: (12, 12, 12, 12).
+        qkv_bias (bool, optional): enable bias for qkv if True. Default: True.
+        qk_scale (float | None, optional): Override default qk scale of
+            head_dim ** -0.5 if set. Default: None.
+        patch_norm (bool, optional): Whether to use patch normalization.
+        drop_rate (float, optional): Dropout rate. Default: 0.
+        attn_drop_rate (float, optional): Attention dropout rate. Default: 0.
+        drop_path_rate (float | list[float], optional): Stochastic depth
+            rate. Default: 0.
+        use_abs_pos_embed (bool, optional): Whether to use absolute position embedding. Default: False.
+        gp_conv_cfg (dict, optional): The config dict of activation function.
+            Default: None.
+        gp_norm_cfg (dict, optional): The config dict of normalization.
+            Default: dict(type='BN'),
+        gp_act_cfg (dict, optional): The config dict of activation.
+            Default: dict(type='GELU'),
+        act_cfg (dict, optional): The config dict of activation function.
+            Default: dict(type='GELU').
+        norm_cfg (dict, optional): The config dict of normalization.
+            Default: dict(type='LN').
+        with_cp (bool, optional): Use checkpoint or not. Using checkpoint
+            will save some memory while slowing down the training speed.
+            Default: False.
+        pretrained (str, optional): (Deprecated) Pre-trained model directory. 
+            Default: None.
+        convert_weights (bool, optional): Whether to convert the weights to swin format. 
+            Default: False.
+        frozen_stages (int, optional): Num of Stages to be frozen (stop grad and set eval mode). 
+            Default: -1, frozen non-stage.
+        init_cfg (dict | list | None, optional): The init config.
+            Default: None.
     """
     def __init__(self,
                  pretrain_img_size=224,
