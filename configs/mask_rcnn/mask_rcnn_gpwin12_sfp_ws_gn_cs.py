@@ -18,6 +18,12 @@ model = dict(
 # load_from='https://download.openmmlab.com/mmdetection/v2.0/gn%2Bws/mask_rcnn_x50_32x4d_fpn_gn_ws-all_2x_coco/mask_rcnn_x50_32x4d_fpn_gn_ws-all_2x_coco_20200216-649fdb6f.pth' #noqa
 # load_from='~/mmdet/outputs/pretrained_models/mask_rcnn_x50_32x4d_fpn_gn_ws-all_2x_coco_20200216-649fdb6f.pth' #noqa
 
+## data
+# batch size
+data = dict(
+    samples_per_gpu=2,
+)
+
 # optimizer
 optimizer = dict(type='AdamW', lr=1e-3, weight_decay=0.05)
 optimizer_config = dict()
