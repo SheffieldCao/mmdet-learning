@@ -147,7 +147,7 @@ outputs/*
 cityscapes/*
 configs/_others_/*
 
-pycocotools_test.py
+pytest.py
 
 temp.py
 temp.sh
