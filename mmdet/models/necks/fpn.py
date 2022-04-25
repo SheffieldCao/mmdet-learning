@@ -1,6 +1,7 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import warnings
 import math
+from collections import OrderedDict
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -560,7 +561,7 @@ class SFP(BaseModule):
         in_channel (int): Number of input channel of the last scale.
         out_channels (int): Number of output channels (used at each scale).
         num_outs (int): Number of output scales.
-        strides (list[int]): Conv strides.
+        strides (tuple[int]): Conv strides.
         conv_cfg (dict): Config dict for convolution layer. Default: None.
         deconv_norm_cfg (dict): Config dict for deconvolution block normalization layer. Default: None.
         norm_cfg (dict): Config dict for normalization layer. Default: None.
@@ -572,7 +573,7 @@ class SFP(BaseModule):
                  in_channel,
                  out_channels,
                  num_outs,
-                 strides=[2,1,1/2,1/4],
+                 strides=(1/4,1/2,1,2,4),
                  conv_cfg=None,
                  deconv_norm_cfg=None,
                  norm_cfg=None,
@@ -587,8 +588,14 @@ class SFP(BaseModule):
         self.lateral_convs = nn.ModuleList()
 
         for stride in strides:
-            if stride > 1:
-                assert stride == 2, 'only support stride == 2.'
+            if stride == 4:
+                l_conv = nn.Sequential(
+                    nn.MaxPool2d(kernel_size=2, stride=2),
+                    ConvModule(self.in_channel, self.out_channels, 1, conv_cfg=conv_cfg, act_cfg=None, inplace=False),
+                    nn.MaxPool2d(kernel_size=2, stride=2),
+                    ConvModule(self.out_channels, self.out_channels, 3, padding=1, conv_cfg=conv_cfg, norm_cfg=norm_cfg, act_cfg=None, inplace=False),
+                )           
+            elif stride == 2:
                 l_conv = nn.Sequential(
                     nn.MaxPool2d(kernel_size=2, stride=2),
                     ConvModule(self.in_channel, self.out_channels, 1, conv_cfg=conv_cfg, act_cfg=None, inplace=False),
@@ -610,19 +617,166 @@ class SFP(BaseModule):
                 l_conv = nn.Sequential(
                     DeConvModule(self.in_channel, self.in_channel, kernel_size=3, stride=2, padding=1, output_padding=1, conv_cfg=conv_cfg, 
                         norm_cfg=deconv_norm_cfg, act_cfg=act_cfg, inplace=False),
-                    DeConvModule(self.in_channel, self.in_channel, kernel_size=3, stride=2, padding=1, output_padding=1, conv_cfg=conv_cfg, 
-                        norm_cfg=deconv_norm_cfg, act_cfg=act_cfg, inplace=False),
                     ConvModule(self.in_channel, self.out_channels, 1, conv_cfg=conv_cfg, act_cfg=None, inplace=False),
+                    DeConvModule(self.out_channels, self.out_channels, kernel_size=3, stride=2, padding=1, output_padding=1, conv_cfg=conv_cfg, 
+                        norm_cfg=deconv_norm_cfg, act_cfg=act_cfg, inplace=False),
                     ConvModule(self.out_channels, self.out_channels, 3, padding=1, conv_cfg=conv_cfg, norm_cfg=norm_cfg, act_cfg=None, inplace=False),
                 )         
 
             self.lateral_convs.append(l_conv)
 
+    @auto_fp16()
     def forward(self, inputs):
         """Forward function."""
-        assert len(inputs) == 1 and isinstance(inputs, tuple)
+        assert isinstance(inputs, tuple)
 
         # build outputs(top down results)
-        outs = [lateral_conv(inputs[0]) for lateral_conv in self.lateral_convs]
+        outs = []
+        for lateral_conv in self.lateral_convs:
+            outs.append(lateral_conv(inputs[0])) 
+
+        return tuple(outs)
+
+class UpBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, padding_mode):
+        super(UpBlock, self).__init__()
+        self.conv = nn.ConvTranspose2d(
+                    in_channels, out_channels, 3, 2, 1, output_padding=1, 
+                    groups=1, dilation=1, padding_mode=padding_mode
+                    )
+        self.norm = nn.LayerNorm(out_channels, elementwise_affine=True)
+        self.act = nn.GELU()
+
+    def forward(self, x):
+        x = self.conv(x).permute(0, 2, 3, 1).contiguous()
+        x = self.norm(x).permute(0, 3, 1, 2).contiguous()
+        return self.act(x)
+
+class Upsample(nn.Module):
+    """
+    Upsample layer.
+
+    Args:
+        in_channels (int): Number of input channels.
+        out_channels (int): Number of output channels.
+        padding_mode (str): Padding mode.
+    """
+
+    def __init__(self, scale_factor, in_channels, out_channels, padding_mode):
+        super(Upsample, self).__init__()
+
+        if scale_factor == 1/2:
+            self.conv_norm_act = UpBlock(in_channels, in_channels, padding_mode)
+        elif scale_factor == 1/4:
+            self.conv_norm_act = nn.Sequential(OrderedDict([
+                ('upconv1', UpBlock(in_channels, in_channels, padding_mode)), 
+                ('upconv2', UpBlock(in_channels, in_channels, padding_mode)) 
+            ]))
+        elif scale_factor == 1:
+            self.conv_norm_act = None
+        
+        self.linear = nn.Conv2d(in_channels, out_channels, 1, 1, 0, bias=False)
+
+        self.final_conv = nn.Conv2d(out_channels, out_channels, 3, 1, 1, 1, 1, False, padding_mode=padding_mode)
+        self.final_norm = nn.LayerNorm(out_channels, elementwise_affine=True)
+
+    def forward(self, x):
+        if self.conv_norm_act:
+            x = self.conv_norm_act(x)
+        
+        x = self.linear(x)
+
+        x = self.final_conv(x).permute(0, 2, 3, 1).contiguous()
+        x = self.final_norm(x).permute(0, 3, 1, 2).contiguous()
+        return x
+
+class DownBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, padding_mode):
+        super(DownBlock, self).__init__()
+
+        self.pool = nn.MaxPool2d(2, 2)
+        self.conv = nn.Conv2d(in_channels, out_channels, 3, 1, 1, 1, 1, bias=True, padding_mode=padding_mode)
+        self.act = nn.GELU()
+    
+    def forward(self, x):
+        x = self.pool(x)
+        x = self.conv(x)
+        return self.act(x)
+
+class Downsample(nn.Module):
+    def __init__(self, scale_factor, in_channels, out_channels, padding_mode):
+        super(Downsample, self).__init__()
+
+        if scale_factor == 2:
+            self.conv_norm_act = DownBlock(in_channels, in_channels, padding_mode)
+        elif scale_factor == 4:
+            self.conv_norm_act = nn.Sequential(OrderedDict([
+                ('downconv1', DownBlock(in_channels, in_channels, padding_mode)), 
+                ('downconv2', DownBlock(in_channels, in_channels, padding_mode)) 
+            ]))
+        else:
+            raise ValueError("scale_factor must be 2 or 4")
+        
+        self.linear = nn.Conv2d(in_channels, out_channels, 1, 1, 0, bias=False)
+
+        self.final_conv = nn.Conv2d(out_channels, out_channels, 3, 1, 1, 1, 1, False, padding_mode=padding_mode)
+        self.final_norm = nn.LayerNorm(out_channels, elementwise_affine=True)
+
+    def forward(self, x):
+        if self.conv_norm_act:
+            x = self.conv_norm_act(x)
+        
+        x = self.linear(x)
+
+        x = self.final_conv(x).permute(0, 2, 3, 1).contiguous()
+        x = self.final_norm(x).permute(0, 3, 1, 2).contiguous()
+        return x
+
+@NECKS.register_module()
+class SFPdev(BaseModule):
+    r"""Simple Feature Pyramid Neck.
+
+    This is an implementation of paper `Exploring Plain Vision Transformer 
+    Backbones for Object Detection <https://arxiv.org/abs/2203.16527>`_.
+
+    Args:
+        in_channel (int): Number of input channel of the last scale.
+        out_channels (int): Number of output channels (used at each scale).
+        num_outs (int): Number of output scales.
+        strides (list[int]): Conv strides.
+        init_cfg (dict or list[dict], optional): Initialization config dict.
+    """
+    def __init__(self,
+                 in_channel,
+                 out_channels,
+                 num_outs=5,
+                 strides=[1/4,1/2,1,2,4],
+                 init_cfg=dict(
+                     type='Xavier', layer='Conv2d', distribution='uniform')):
+        super(SFPdev, self).__init__(init_cfg)
+        assert isinstance(in_channel, int)
+        self.in_channel = in_channel
+        self.out_channels = out_channels
+        self.num_outs = num_outs
+        assert len(strides) == num_outs
+        lateral_convs = OrderedDict()
+
+        for i,stride in enumerate(strides):
+            if stride <= 1:
+                lateral_convs[('lateral', i)] = Upsample(stride, in_channel, out_channels, padding_mode='zeros')
+            else:
+                lateral_convs[('lateral', i)] = Downsample(stride, in_channel, out_channels, padding_mode='zeros')     
+
+        self.lateral_convs = nn.ModuleList(list(lateral_convs.values()))
+
+    @auto_fp16()
+    def forward(self, inputs):
+        """Forward function."""
+        assert isinstance(inputs, tuple)
+
+        # build outputs(top down results)
+        outs = []
+        for i in range(self.num_outs):
+            outs.append(self.lateral_convs[i](inputs[2])) 
 
         return tuple(outs)
