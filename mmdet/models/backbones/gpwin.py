@@ -6,7 +6,7 @@ import torch.nn as nn
 
 from mmcv.cnn import build_norm_layer, constant_init, trunc_normal_init
 from mmcv.cnn.utils.weight_init import trunc_normal_, constant_init
-from mmcv.runner import BaseModule, ModuleList
+from mmcv.runner import BaseModule
 from mmcv.utils import to_2tuple
 from mmcv.cnn import build_activation_layer
 
@@ -85,7 +85,7 @@ class Bottleneckv2(Bottleneck):
     def init_weights(self):
         logger = get_root_logger()
         logger.warn(f'The last layer of {self.__class__.__name__} is initialized by zeros.')
-        # super(Bottleneckv2, self).init_weights()
+        super(Bottleneckv2, self).init_weights()
         
         constant_init(self.conv3, val=.0)
 
@@ -148,7 +148,7 @@ class GPWinBlockSequence(BaseModule):
         else:
             drop_path_rates = [deepcopy(drop_path_rate) for _ in range(depth)]
 
-        self.blocks = ModuleList()
+        self.blocks = nn.ModuleList()
         for i in range(depth):
             block = SwinBlock(
                 embed_dims=embed_dims,
@@ -168,16 +168,12 @@ class GPWinBlockSequence(BaseModule):
             self.blocks.append(block)
         
         assert embed_dims % 4 == 0, "` embed_dims ` must be a multiple of 4"
-        if depth <= 3 :
-            self.global_propagation = Bottleneckv2(
-                embed_dims, embed_dims//4, with_cp=with_cp, conv_cfg=gp_conv_cfg, norm_cfg=gp_norm_cfg, 
-                act_cfg=gp_act_cfg
-                )
-        elif depth > 3:
-            self.global_propagation = BasicBlockv2(
-                embed_dims, embed_dims, with_cp=with_cp, conv_cfg=gp_conv_cfg, norm_cfg=gp_norm_cfg, 
-                act_cfg=gp_act_cfg
-                )
+
+        self.global_propagation = Bottleneckv2(
+            embed_dims, embed_dims//4, with_cp=with_cp, conv_cfg=gp_conv_cfg, norm_cfg=gp_norm_cfg, 
+            act_cfg=gp_act_cfg
+            )
+
 
     def forward(self, x, hw_shape):
         for block in self.blocks:
@@ -188,7 +184,7 @@ class GPWinBlockSequence(BaseModule):
         assert (x.size()[2], x.size()[3]) == hw_shape, "ResBlock output shape is not equal to input shape"
         x = nchw_to_nlc(x)
 
-        return x, hw_shape, x, hw_shape
+        return x, hw_shape
 
 
 @BACKBONES.register_module()
@@ -315,7 +311,7 @@ class GPWin(BaseModule):
             x.item() for x in torch.linspace(0, drop_path_rate, total_depth)
         ]
 
-        self.stages = ModuleList()
+        self.stages = nn.ModuleList()
         for i in range(num_layers):
             stage = GPWinBlockSequence(
                 embed_dims=embed_dims,
@@ -344,7 +340,8 @@ class GPWin(BaseModule):
     def train(self, mode=True):
         """Convert the model into training mode while keep layers freezed."""
         super(GPWin, self).train(mode)
-        self._freeze_stages()
+        # without using _freeze_stages, the last layer norm was shut down in this function!
+        # self._freeze_stages()
 
     def _freeze_stages(self):
         if self.frozen_stages >= 0:
@@ -370,80 +367,17 @@ class GPWin(BaseModule):
 
     def init_weights(self):
         logger = get_root_logger()
-        if self.init_cfg is None:
-            logger.warn(f'No pre-trained weights for '
-                        f'{self.__class__.__name__}, '
-                        f'training start from scratch')
-            if self.use_abs_pos_embed:
-                trunc_normal_(self.absolute_pos_embed, std=0.02)
-            for m in self.modules():
-                if isinstance(m, nn.Linear):
-                    trunc_normal_init(m, std=.02, bias=0.)
-                elif isinstance(m, nn.LayerNorm):
-                    constant_init(m, 1.0)
-        else:
-            # TODO: load pretrain Swin Transformer Block weights
-            pass
-            # assert 'checkpoint' in self.init_cfg, f'Only support ' \
-            #                                       f'specify `Pretrained` in ' \
-            #                                       f'`init_cfg` in ' \
-            #                                       f'{self.__class__.__name__} '
-            # ckpt = _load_checkpoint(
-            #     self.init_cfg.checkpoint, logger=logger, map_location='cpu')
-            # if 'state_dict' in ckpt:
-            #     _state_dict = ckpt['state_dict']
-            # elif 'model' in ckpt:
-            #     _state_dict = ckpt['model']
-            # else:
-            #     _state_dict = ckpt
-            # if self.convert_weights:
-            #     # supported loading weight from original repo,
-            #     _state_dict = swin_converter(_state_dict)
-
-            # state_dict = OrderedDict()
-            # for k, v in _state_dict.items():
-            #     if k.startswith('backbone.'):
-            #         state_dict[k[9:]] = v
-
-            # # strip prefix of state_dict
-            # if list(state_dict.keys())[0].startswith('module.'):
-            #     state_dict = {k[7:]: v for k, v in state_dict.items()}
-
-            # # reshape absolute position embedding
-            # if state_dict.get('absolute_pos_embed') is not None:
-            #     absolute_pos_embed = state_dict['absolute_pos_embed']
-            #     N1, L, C1 = absolute_pos_embed.size()
-            #     N2, C2, H, W = self.absolute_pos_embed.size()
-            #     if N1 != N2 or C1 != C2 or L != H * W:
-            #         logger.warning('Error in loading absolute_pos_embed, pass')
-            #     else:
-            #         state_dict['absolute_pos_embed'] = absolute_pos_embed.view(
-            #             N2, H, W, C2).permute(0, 3, 1, 2).contiguous()
-
-            # # interpolate position bias table if needed
-            # relative_position_bias_table_keys = [
-            #     k for k in state_dict.keys()
-            #     if 'relative_position_bias_table' in k
-            # ]
-            # for table_key in relative_position_bias_table_keys:
-            #     table_pretrained = state_dict[table_key]
-            #     table_current = self.state_dict()[table_key]
-            #     L1, nH1 = table_pretrained.size()
-            #     L2, nH2 = table_current.size()
-            #     if nH1 != nH2:
-            #         logger.warning(f'Error in loading {table_key}, pass')
-            #     elif L1 != L2:
-            #         S1 = int(L1**0.5)
-            #         S2 = int(L2**0.5)
-            #         table_pretrained_resized = F.interpolate(
-            #             table_pretrained.permute(1, 0).reshape(1, nH1, S1, S1),
-            #             size=(S2, S2),
-            #             mode='bicubic')
-            #         state_dict[table_key] = table_pretrained_resized.view(
-            #             nH2, L2).permute(1, 0).contiguous()
-
-            # # load state_dict
-            # self.load_state_dict(state_dict, False)
+        # TODO: now ONLY support training from scratch
+        logger.warn(f'No pre-trained weights for '
+                    f'{self.__class__.__name__}, '
+                    f'training start from scratch')
+        if self.use_abs_pos_embed:
+            trunc_normal_(self.absolute_pos_embed, std=0.02)
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                trunc_normal_init(m, std=.02, bias=0.)
+            elif isinstance(m, nn.LayerNorm):
+                constant_init(m, 1.0)
 
     def forward(self, x):
         x, hw_shape = self.patch_embed(x)
@@ -453,12 +387,12 @@ class GPWin(BaseModule):
         x = self.drop_after_pos(x)
 
         for stage in self.stages:
-            x, hw_shape, out, out_hw_shape = stage(x, hw_shape)
+            x, hw_shape = stage(x, hw_shape)
 
 
         norm_layer = getattr(self, f'final_norm')
-        out = norm_layer(out)
-        out = out.view(-1, *out_hw_shape, 
+        out = norm_layer(x)
+        out = out.view(-1, *hw_shape, 
                     self.num_features).permute(0, 3, 1, 2).contiguous()
 
         return (out,)
