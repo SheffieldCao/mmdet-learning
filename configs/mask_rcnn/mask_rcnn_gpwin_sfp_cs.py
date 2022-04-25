@@ -22,8 +22,8 @@ model = dict(
     neck=dict(
         type='SFP',
         out_channels=256,
-        num_outs=4,
-        strides=[2,1,1/2,1/4],
+        num_outs=5,
+        strides=(1/4,1/2,1,2,4),
         conv_cfg=conv_cfg,
         norm_cfg=dict(type='LN'),
         ),
@@ -39,7 +39,7 @@ model = dict(
             conv_cfg=conv_cfg, 
             norm_cfg=norm_cfg))
     )
-find_unused_parameters=True
+
 load_from=None
 
 # dataset settings
@@ -96,19 +96,22 @@ data = dict(
             ann_file=data_root +
             'annotations_mmdet_cvt/instancesonly_filtered_gtFine_train.json',
             img_prefix=data_root + 'leftImg8bit/train/',
-            pipeline=train_pipeline)),
+            pipeline=train_pipeline,
+            filter_empty_gt=True)),
     val=dict(
         type=dataset_type,
         ann_file=data_root +
         'annotations_mmdet_cvt/instancesonly_filtered_gtFine_val.json',
         img_prefix=data_root + 'leftImg8bit/val/',
-        pipeline=test_pipeline),
+        pipeline=test_pipeline,
+        filter_empty_gt=True),
     test=dict(
         type=dataset_type,
         ann_file=data_root +
         'annotations_mmdet_cvt/instancesonly_filtered_gtFine_test.json',
         img_prefix=data_root + 'leftImg8bit/test/',
-        pipeline=test_pipeline))
+        pipeline=test_pipeline,
+        filter_empty_gt=True))
 evaluation = dict(metric=['bbox', 'segm'])
 
 # optimizer

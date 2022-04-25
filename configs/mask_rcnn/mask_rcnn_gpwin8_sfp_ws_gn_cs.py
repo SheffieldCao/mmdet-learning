@@ -7,8 +7,8 @@ model = dict(
         window_size=8,
         depths=(2, 2, 2, 2),
         num_heads=(12, 12, 12, 12),
-        drop_rate=0.2,
-        attn_drop_rate=0.1,
+        drop_rate=0.,
+        attn_drop_rate=0.,
         drop_path_rate=0.3,
     ),
 )
@@ -22,6 +22,8 @@ model = dict(
 data = dict(
     samples_per_gpu=2,
 )
+
+# find_unused_parameters=True
 
 # optimizer
 optimizer = dict(type='AdamW', lr=1e-3, weight_decay=0.05)
