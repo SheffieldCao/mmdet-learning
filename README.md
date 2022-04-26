@@ -1,127 +1,17 @@
-# Instance Segmentation with Depth Estimation
+# Joint Learnning of Instance Segmentation and Depth Estimation
   <img src="https://user-images.githubusercontent.com/12907710/137271636-56ba1cd2-b110-4812-8221-b4c120320aa9.png"/>
+
+[toc]
 
 ## Introduction
 
-English | [简体中文](README_zh-CN.md)
+This repo is based on **OpenMMLab** [mmdet](https://github.com/open-mmlab/mmdetection). 
 
-MMDetection is an open source object detection toolbox based on PyTorch. It is
-a part of the [OpenMMLab](https://openmmlab.com/) project.
+The master branch works with **PyTorch 1.8.10**.
 
-The master branch works with **PyTorch 1.5+**.
-
-## License
-
-This project is released under the [Apache 2.0 license](LICENSE).
-
-## Overview of Benchmark and Model Zoo
+## Overview of On-shelf Bullets
 
 Results and models are available in the [model zoo](docs/en/model_zoo.md).
-
-<div align="center">
-  <b>Architectures</b>
-</div>
-<table align="center">
-  <tbody>
-    <tr align="center" valign="bottom">
-      <td>
-        <b>Object Detection</b>
-      </td>
-      <td>
-        <b>Instance Segmentation</b>
-      </td>
-      <td>
-        <b>Panoptic Segmentation</b>
-      </td>
-      <td>
-        <b>Other</b>
-      </td>
-    </tr>
-    <tr valign="top">
-      <td>
-        <ul>
-            <li><a href="configs/fast_rcnn">Fast R-CNN (ICCV'2015)</a></li>
-            <li><a href="configs/faster_rcnn">Faster R-CNN (NeurIPS'2015)</a></li>
-            <li><a href="configs/rpn">RPN (NeurIPS'2015)</a></li>
-            <li><a href="configs/ssd">SSD (ECCV'2016)</a></li>
-            <li><a href="configs/retinanet">RetinaNet (ICCV'2017)</a></li>
-            <li><a href="configs/cascade_rcnn">Cascade R-CNN (CVPR'2018)</a></li>
-            <li><a href="configs/yolo">YOLOv3 (ArXiv'2018)</a></li>
-            <li><a href="configs/cornernet">CornerNet (ECCV'2018)</a></li>
-            <li><a href="configs/grid_rcnn">Grid R-CNN (CVPR'2019)</a></li>
-            <li><a href="configs/guided_anchoring">Guided Anchoring (CVPR'2019)</a></li>
-            <li><a href="configs/fsaf">FSAF (CVPR'2019)</a></li>
-            <li><a href="configs/centernet">CenterNet (CVPR'2019)</a></li>
-            <li><a href="configs/libra_rcnn">Libra R-CNN (CVPR'2019)</a></li>
-            <li><a href="configs/tridentnet">TridentNet (ICCV'2019)</a></li>
-            <li><a href="configs/fcos">FCOS (ICCV'2019)</a></li>
-            <li><a href="configs/reppoints">RepPoints (ICCV'2019)</a></li>
-            <li><a href="configs/free_anchor">FreeAnchor (NeurIPS'2019)</a></li>
-            <li><a href="configs/cascade_rpn">CascadeRPN (NeurIPS'2019)</a></li>
-            <li><a href="configs/foveabox">Foveabox (TIP'2020)</a></li>
-            <li><a href="configs/double_heads">Double-Head R-CNN (CVPR'2020)</a></li>
-            <li><a href="configs/atss">ATSS (CVPR'2020)</a></li>
-            <li><a href="configs/nas_fcos">NAS-FCOS (CVPR'2020)</a></li>
-            <li><a href="configs/autoassign">AutoAssign (ArXiv'2020)</a></li>
-            <li><a href="configs/sabl">Side-Aware Boundary Localization (ECCV'2020)</a></li>
-            <li><a href="configs/dynamic_rcnn">Dynamic R-CNN (ECCV'2020)</a></li>
-            <li><a href="configs/detr">DETR (ECCV'2020)</a></li>
-            <li><a href="configs/paa">PAA (ECCV'2020)</a></li>
-            <li><a href="configs/vfnet">VarifocalNet (CVPR'2021)</a></li>
-            <li><a href="configs/sparse_rcnn">Sparse R-CNN (CVPR'2021)</a></li>
-            <li><a href="configs/yolof">YOLOF (CVPR'2021)</a></li>
-            <li><a href="configs/yolox">YOLOX (CVPR'2021)</a></li>
-            <li><a href="configs/deformable_detr">Deformable DETR (ICLR'2021)</a></li>
-            <li><a href="configs/tood">TOOD (ICCV'2021)</a></li>
-      </ul>
-      </td>
-      <td>
-        <ul>
-          <li><a href="configs/mask_rcnn">Mask R-CNN (ICCV'2017)</a></li>
-          <li><a href="configs/cascade_rcnn">Cascade Mask R-CNN (CVPR'2018)</a></li>
-          <li><a href="configs/ms_rcnn">Mask Scoring R-CNN (CVPR'2019)</a></li>
-          <li><a href="configs/htc">Hybrid Task Cascade (CVPR'2019)</a></li>
-          <li><a href="configs/yolact">YOLACT (ICCV'2019)</a></li>
-          <li><a href="configs/instaboost">InstaBoost (ICCV'2019)</a></li>
-          <li><a href="configs/solo">SOLO (ECCV'2020)</a></li>
-          <li><a href="configs/point_rend">PointRend (CVPR'2020)</a></li>
-          <li><a href="configs/detectors">DetectoRS (ArXiv'2020)</a></li>
-          <li><a href="configs/scnet">SCNet (AAAI'2021)</a></li>
-          <li><a href="configs/queryinst">QueryInst (ICCV'2021)</a></li>
-        </ul>
-      </td>
-      <td>
-        <ul>
-          <li><a href="configs/panoptic_fpn">Panoptic FPN (CVPR'2019)</a></li>
-          <li><a href="configs/maskformer">MaskFormer (NeurIPS'2021)</a></li>
-          <li><a href="configs/mask2former">Mask2Former (ArXiv'2021)</a></li>
-        </ul>
-      </td>
-      <td>
-        </ul>
-          <li><b>Contrastive Learning</b></li>
-        <ul>
-        <ul>
-          <li><a href="configs/selfsup_pretrain">SwAV (NeurIPS'2020)</a></li>
-          <li><a href="configs/selfsup_pretrain">MoCo (CVPR'2020)</a></li>
-          <li><a href="configs/selfsup_pretrain">MoCov2 (ArXiv'2020)</a></li>
-        </ul>
-        </ul>
-        </ul>
-          <li><b>Distillation</b></li>
-        <ul>
-        <ul>
-          <li><a href="configs/ld">Localization Distillation (CVPR'2022)</a></li>
-          <li><a href="configs/lad">Label Assignment Distillation (WACV'2022)</a></li>
-        </ul>
-        </ul>
-      </ul>
-      </td>
-    </tr>
-</td>
-    </tr>
-  </tbody>
-</table>
 
 <div align="center">
   <b>Components</b>
@@ -199,6 +89,46 @@ Results and models are available in the [model zoo](docs/en/model_zoo.md).
 
 Some other methods are also supported in [projects using MMDetection](./docs/en/projects.md).
 
+## Experiments
+
+### 1. X50 GN & WS
+
+通过引入ResNeXt50，结合 group norm 以及 weight standard。提升效果
+
+### 2. GPWin + SFP `(0421)`
+
+Refer to [Exploring Plain Vision Transformer Backbones for Object Detection](https://arxiv.org/abs/2203.16527).
+
+### 3. OHEM 难样本挖掘 `(0426)`
+
+直接在原有的 (RandomSampler) 基础上设定 OHEM 采样器即可。
+```python
+model = dict(
+  train_cfg=dict(
+    rcnn=dict(
+      sampler=dict(type='OHEMSampler')
+    )
+  )
+)
+```
+
+### N. Results
+
+**All** based on `Mask RCNN`. :sunglasses:
+
+| Backbone |w/ COCO pretrain|  **OHEM**  | RPN hidden layers | DCN(GP) | bbox mAP  |  Mask mAP |
+|----------|:--------------:|:----------:|:-----------------:|:-------:|:---------:|:---------:|
+| GPWin+SFP |  N   |   N  |  1  |  N  |  0.215  |  0.177  |
+| GPWin+SFP |  N   |   Y  |  2  |  Y  |  ?  |  ?   |
+| X50+FPN   |  Y   |   N  |  1  |  N  |  **0.365**  |  **0.315**   |
+| X50+FPN   |  N   |   N  |  1  |  N  |  **0.365**  |  **0.315**   |
+| X50+FPN   |  Y   |   Y  |  2  |  Y  |  ?  |  ?   |
+| X50+FPN   |  N   |   Y  |  2  |  Y  |  ?  |  ?   |
+
+## License
+
+This project is released under the [Apache 2.0 license](LICENSE).
+
 ## Installation
 
 Please refer to [get_started.md](docs/en/get_started.md) for installation.
@@ -211,6 +141,3 @@ There are also tutorials for [finetuning models](docs/en/tutorials/finetune.md),
 
 Please refer to [FAQ](docs/en/faq.md) for frequently asked questions.
 
-## Contributing
-
-We appreciate all contributions to improve MMDetection. Ongoing projects can be found in out [GitHub Projects](https://github.com/open-mmlab/mmdetection/projects). Welcome community users to participate in these projects. Please refer to [CONTRIBUTING.md](.github/CONTRIBUTING.md) for the contributing guideline.
