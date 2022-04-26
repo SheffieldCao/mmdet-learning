@@ -1,5 +1,7 @@
 ## Cityscapes-DVPS
 
+Refer to [ViP-DeepLab](https://github.com/joe-siyuan-qiao/ViP-DeepLab/tree/master/cityscapes-dvps)
+
 Please download the depth annotations from [link](https://drive.google.com/file/d/147esC0jEhWQCCEMOHj5nYGCPnuwmQrl4/view?usp=sharing)
 and extract it to here. It will be a folder named `video_sequence`. Then,
 ```bash
