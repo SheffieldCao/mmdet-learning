@@ -88,8 +88,8 @@ def main():
     # args.checkpoint_file = 'outputs/mask_rcnn_x50_32x4d_dw_gn_cs_8x2_cs_1024/epoch_3.pth'
 
     model_cfg = '_'.join(args.checkpoint_file.split('/')[-2:]).replace('.pth', '')
-    if not osp.exists(DATASET_PREFIX+'datasets/demo_{}'.format(model_cfg)):
-        os.mkdir(DATASET_PREFIX+'datasets/demo_{}'.format(model_cfg))
+    if not osp.exists(DATASET_PREFIX+'datasets/demo_results/demo_{}'.format(model_cfg)):
+        os.mkdir(DATASET_PREFIX+'datasets/demo_results/demo_{}'.format(model_cfg))
     # if not osp.exists(osp.join('cityscapes','demo_{}'.format(model_cfg))):
     #     os.mkdir(osp.join('cityscapes','demo_{}'.format(model_cfg)))
     # build the model from a config file and a checkpoint file
