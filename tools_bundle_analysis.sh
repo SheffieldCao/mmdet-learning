@@ -5,8 +5,8 @@ INPUT_SHAPE=${INPUT_SHAPE:-[3,2048,1024]}
 LOSS_IMAGE=${LOSS_IMAGE:-losses.png}
 MAP_IMAGE=${MAP_IMAGE:-mAPs.png}
 
-# Model Complexity
-python tools/analysis_tools/get_flops.py $CONFIG --gpu_id 7
+# # Model Complexity
+# python tools/analysis_tools/get_flops.py $CONFIG --gpu_id 7
 
 # Avg Training speed
 python tools/results_analysis.py cal_train_time $JSON

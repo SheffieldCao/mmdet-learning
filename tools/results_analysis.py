@@ -98,6 +98,7 @@ def plot_curve(log_dicts, args):
                 ys = []
                 for epoch in epochs:
                     ys += log_dict[epoch][metric]
+                ys = np.array(ys)
                 ax = plt.gca()
                 ax.tick_params(axis = 'both', which='major', labelsize = 21)
                 xs_ticks = xs
@@ -106,6 +107,7 @@ def plot_curve(log_dicts, args):
                 ax.set_xticks(xs_ticks, fontsize=font_size)
                 plt.xlabel('epoch', fontsize=font_size)
                 plt.plot(xs, ys, label=legend[i * num_metrics + j], marker='o')
+                plt.plot(xs[np.argmax(ys)],ys[np.argmax(ys)], marker='d', markersize=12, label='{0}: {2} (epoch{1})'.format(metric, np.argmax(ys) + 1, np.max(ys)))
             else:
                 xs = []
                 ys = []
@@ -124,6 +126,7 @@ def plot_curve(log_dicts, args):
                 plt.plot(
                     xs, ys, label=legend[i * num_metrics + j], linewidth=2)
             plt.legend(fontsize=font_size)
+        plt.grid(True, axis='y')
         if args.title is not None:
             title = '_'.join(args.title.split('/')[:-1])
             plt.title(title, fontsize=font_size)
