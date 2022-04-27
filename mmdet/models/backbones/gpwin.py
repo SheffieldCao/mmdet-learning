@@ -69,10 +69,12 @@ class Bottleneckv2(Bottleneck):
                  act_cfg=dict(type='GELU'),
                  dcn=None,
                  plugins=None,
+                 gp_stem_zero=False,
                  init_cfg=None):
         super(Bottleneckv2, self).__init__(inplanes, planes, stride, dilation, downsample, style, with_cp,
                                             conv_cfg, norm_cfg, dcn, plugins, init_cfg)
         self.act_cfg = act_cfg
+        self.zero_gp_stem = gp_stem_zero
         if self.act_cfg is not None:
             if getattr(self.act_cfg,'type', None) == 'GELU':
                 assert 'in_place' not in self.act_cfg, " `GELU ` got an unexpected argument ` in_place `"
@@ -87,7 +89,8 @@ class Bottleneckv2(Bottleneck):
         logger.warn(f'The last layer of {self.__class__.__name__} is initialized by zeros.')
         super(Bottleneckv2, self).init_weights()
         
-        constant_init(self.conv3, val=.0)
+        if self.zero_gp_stem:
+            constant_init(self.conv3, val=.0)
 
 class GPWinBlockSequence(BaseModule):
     """Implements one stage in GPWin Transformer.
@@ -118,6 +121,8 @@ class GPWinBlockSequence(BaseModule):
         with_cp (bool, optional): Use checkpoint or not. Using checkpoint
             will save some memory while slowing down the training speed.
             Default: False.
+        with_shift_block (bool, optional): Use shift block or not.
+            Default: False.
         init_cfg (dict | list | None, optional): The init config.
             Default: None.
     """
@@ -136,9 +141,11 @@ class GPWinBlockSequence(BaseModule):
                  gp_conv_cfg=None,
                  gp_norm_cfg=dict(type='BN'),
                  gp_act_cfg=dict(type='GELU'),
+                 gp_stem_zero=False,
                  act_cfg=dict(type='GELU'),
                  norm_cfg=dict(type='LN'),
                  with_cp=False,
+                 with_shift_block=False,
                  init_cfg=None):
         super().__init__(init_cfg=init_cfg)
 
@@ -148,14 +155,17 @@ class GPWinBlockSequence(BaseModule):
         else:
             drop_path_rates = [deepcopy(drop_path_rate) for _ in range(depth)]
 
+        shift = False
         self.blocks = nn.ModuleList()
         for i in range(depth):
+            if i % 2 == 0 and with_shift_block:
+                shift = True
             block = SwinBlock(
                 embed_dims=embed_dims,
                 num_heads=num_heads,
                 feedforward_channels=feedforward_channels,
                 window_size=window_size,
-                shift=False,
+                shift=shift,
                 qkv_bias=qkv_bias,
                 qk_scale=qk_scale,
                 drop_rate=drop_rate,
@@ -171,7 +181,7 @@ class GPWinBlockSequence(BaseModule):
 
         self.global_propagation = Bottleneckv2(
             embed_dims, embed_dims//4, with_cp=with_cp, conv_cfg=gp_conv_cfg, norm_cfg=gp_norm_cfg, 
-            act_cfg=gp_act_cfg
+            act_cfg=gp_act_cfg, gp_stem_zero=gp_stem_zero
             )
 
 
@@ -225,6 +235,7 @@ class GPWin(BaseModule):
         with_cp (bool, optional): Use checkpoint or not. Using checkpoint
             will save some memory while slowing down the training speed.
             Default: False.
+        with_shift_block (bool, optional): Whether to use shift block. Default: False.
         pretrained (str, optional): (Deprecated) Pre-trained model directory. 
             Default: None.
         convert_weights (bool, optional): Whether to convert the weights to swin format. 
@@ -253,9 +264,11 @@ class GPWin(BaseModule):
                  gp_conv_cfg=dict(type='ConvWS'),
                  gp_norm_cfg=dict(type='BN'),
                  gp_act_cfg=dict(type='GELU'),
+                 gp_stem_zero=False,
                  act_cfg=dict(type='GELU'),
                  norm_cfg=dict(type='LN'),
                  with_cp=False,
+                 with_shift_block=False,
                  pretrained=None,
                  convert_weights=False,
                  frozen_stages=-1,
@@ -327,9 +340,11 @@ class GPWin(BaseModule):
                 gp_conv_cfg=gp_conv_cfg,
                 gp_norm_cfg=gp_norm_cfg,
                 gp_act_cfg=gp_act_cfg,
+                gp_stem_zero=gp_stem_zero,
                 act_cfg=act_cfg,
                 norm_cfg=norm_cfg,
                 with_cp=with_cp,
+                with_shift_block=with_shift_block,
                 init_cfg=None)
             self.stages.append(stage)
 
