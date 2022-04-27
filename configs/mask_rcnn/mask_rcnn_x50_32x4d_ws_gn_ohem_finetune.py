@@ -28,10 +28,10 @@ model = dict(
 
 ## fintune model series URL: <https://github.com/open-mmlab/mmdetection/tree/master/configs/gn%2Bws>_.
 # load_from='https://download.openmmlab.com/mmdetection/v2.0/gn%2Bws/mask_rcnn_x50_32x4d_fpn_gn_ws-all_2x_coco/mask_rcnn_x50_32x4d_fpn_gn_ws-all_2x_coco_20200216-649fdb6f.pth' #noqa
-load_from='~/mmdet/outputs/mask_rcnn_x50_32x4d_ws_gn_cs_2x2_cs_1024_from_scratch/epoch_55.pth' #noqa
+load_from='~/mmdet/outputs/mask_rcnn_x50_32x4d_ws_gn_cs_8x2_cs_1024/epoch_29.pth' #noqa
 
 # optimizer
-optimizer = dict(type='AdamW', lr=1e-4, weight_decay=5e-4)
+optimizer = dict(type='AdamW', lr=1e-3, weight_decay=5e-2)
 optimizer_config = dict()
 # learning policy
 lr_config = dict(
@@ -39,8 +39,9 @@ lr_config = dict(
     warmup='linear',
     warmup_iters=500,
     warmup_ratio=0.1,
-    step=[20, 23])
-runner = dict(type='EpochBasedRunner', max_epochs=25)
+    gamma=0.2,
+    step=[15, 18])
+runner = dict(type='EpochBasedRunner', max_epochs=20)
 cudnn_benchmark = False
 
 # resume
