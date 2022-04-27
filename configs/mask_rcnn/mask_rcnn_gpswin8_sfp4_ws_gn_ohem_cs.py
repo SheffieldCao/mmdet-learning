@@ -49,7 +49,7 @@ data = dict(
 # find_unused_parameters=True
 
 # optimizer
-optimizer = dict(type='AdamW', lr=1e-3, weight_decay=0.05)
+optimizer = dict(type='AdamW', lr=1e-4, weight_decay=0.05)
 optimizer_config = dict()
 # learning policy
 lr_config = dict(
@@ -57,8 +57,8 @@ lr_config = dict(
     warmup='linear',
     warmup_iters=500,
     warmup_ratio=0.1,
-    step=[32, 64, 70, 75],
-    gamma=0.3,
+    step=[30, 60, 70, 75],
+    gamma=0.2,
     )
 runner = dict(type='EpochBasedRunner', max_epochs=80)
 cudnn_benchmark = False
