@@ -11,6 +11,13 @@ model = dict(
         attn_drop_rate=0.,
         drop_path_rate=0.3,
     ),
+    neck=dict(
+        type='SFP',
+        out_channels=256,
+        num_outs=4,
+        strides=(1/4,1/2,1,2),
+        ),
+    
 )
 
 ## fintune model series URL
