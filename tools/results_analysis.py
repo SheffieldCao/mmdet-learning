@@ -48,6 +48,7 @@ def cal_train_time(log_dicts, args):
 
 
 def plot_curve(log_dicts, args):
+    import pandas as pd
     if args.backend is not None:
         plt.switch_backend(args.backend)
     # sns.set_style(args.style)
@@ -75,6 +76,7 @@ def plot_curve(log_dicts, args):
     num_metrics = len(metrics)
     for i, log_dict in enumerate(log_dicts):
         epochs = list(log_dict.keys())
+        values = []
         for j, metric in enumerate(metrics):
             print(f'plot curve of {args.json_logs[i]}, metric is {metric}')
             if metric not in log_dict[epochs[int(args.start_epoch) - 1]]:
@@ -87,7 +89,8 @@ def plot_curve(log_dicts, args):
                     f'{args.json_logs[i]} does not contain metric {metric}. '
                     'Please reduce the log interval in the config so that '
                     'interval is less than iterations of one epoch.')
-
+            epochs_ = []
+            values_ = []
             if 'mAP' in metric:
                 if len(epochs) == max(epochs):
                     xs = np.arange(
@@ -98,6 +101,8 @@ def plot_curve(log_dicts, args):
                 ys = []
                 for epoch in epochs:
                     ys += log_dict[epoch][metric]
+                epochs_.append(xs)
+                values_.append(ys)
                 ys = np.array(ys)
                 ax = plt.gca()
                 ax.tick_params(axis = 'both', which='major', labelsize = 21)
@@ -126,16 +131,25 @@ def plot_curve(log_dicts, args):
                 plt.plot(
                     xs, ys, label=legend[i * num_metrics + j], linewidth=2)
             plt.legend(fontsize=font_size)
+            values.append(epochs_)
+            values.append(values_)
         plt.grid(True, axis='y')
         if args.title is not None:
             title = '_'.join(args.title.split('/')[:-1])
             plt.title(title, fontsize=font_size)
+    flags = [len(values[0]) == len(values[2*x]) for x in range(len(values)//2)]
+    assert np.all(np.array(flags))
+    valuesf = [values[0]] + [values[2*i+1] for i in range(len(values)//2)]
+    if len(values[0]) != 0:
+        final_values = np.concatenate(valuesf, axis=0).transpose(1,0)
     if args.out is None:
         plt.show()
     else:
         if args.title is not None:
             out = '/'.join(args.title.split('/')[:-1])
         print(f'save curve to: {os.path.join(out, args.out)}')
+        if len(values[0]) != 0:
+            pd.DataFrame(final_values, columns=['epochs']+list(metrics)).to_csv(os.path.join(out, 'final_eval_values.txt'), index=False)
         fig.savefig(os.path.join(out, args.out))
         plt.cla()
 
