@@ -31,7 +31,7 @@ model = dict(
 load_from='~/mmdet/outputs/mask_rcnn_x50_32x4d_ws_gn_cs_8x2_cs_1024/epoch_29.pth' #noqa
 
 # optimizer
-optimizer = dict(type='AdamW', lr=1e-3, weight_decay=5e-2)
+optimizer = dict(type='AdamW', lr=1e-4, weight_decay=5e-4)
 optimizer_config = dict()
 # learning policy
 lr_config = dict(
@@ -45,4 +45,4 @@ runner = dict(type='EpochBasedRunner', max_epochs=30)
 cudnn_benchmark = False
 
 # resume
-resume_from = '~/mmdet/outputs/mask_rcnn_x50_32x4d_ws_gn_ohem_finetune_cs_4x2_1024_20e/epoch_24.pth'
+# resume_from = '~/mmdet/outputs/mask_rcnn_x50_32x4d_ws_gn_ohem_finetune_cs_4x2_1024_20e/epoch_24.pth'
