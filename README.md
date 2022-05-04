@@ -129,21 +129,31 @@ model = dict(
 
 ### N. Results
 
-**All** based on `Mask RCNN`. :sunglasses:
+:sunglasses:
 
-| Backbone |  epochs  |  lr  |w/ COCO pretrain|  **OHEM**  | RPN hidden layers | DCN(X50/GP) | bbox mAP  |  Mask mAP |
-|----------|:--------:|:----:|:--------------:|:----------:|:-----------------:|:-----------:|:---------:|:---------:|
-| X50+FPN          |  55  | 1e-3 |  Y   |   N  |  1  |  N  |  **0.369**  |  **0.33**   |
-| X50+FPN          |  55  | 1e-3 |  N   |   N  |  1  |  N  |  0.363  |  0.315  |
-| X50+FPN finetune |  20  | 1e-3 |  Y   | ==Y==|  1  |  N  |  ?  |  ?  |
-| X50+FPN finetune |  20  | 1e-3 |  N   | ==Y==|  1  |  N  |  ?  |  ?  |
-| X50+FPN finetune |  25  | 1e-4 |  Y   | ==Y==|  1  |  N  |  0.365  |  0.325  |
-| X50+FPN finetune |  25  | 1e-4 |  N   | ==Y==|  1  |  N  |  0.358  |  0.306  |
-| GPWin+SFP        |  30  | 1e-3 |  N   |   N  |  1  |  N  |  0.215  |  0.177  |
-| GPWin+SFP        |  30  | 1e-3 |  N   |   N  |  1  |  N  |  0.215  |  0.177  |
-| GPWin+SFP        |  30  | 1e-3 |  N   |   Y  |  2  |  Y  |  ?  |  ?   |
-| GPWin+SFP        |  30  | 1e-3 |  N   |   N  |  1  |  N  |  0.215  |  0.177  |
-| GPWin+SFP        |  30  | 1e-3 |  N   |   Y  |  2  |  Y  |  ?  |  ?   |
+| Meta Arch | Backbone |  epochs  |  lr  |w/ COCO pretrain|  **OHEM**  | RPN hidden layers | DCN(X50/GP) | bbox mAP  |  Mask mAP |
+|:---------:|----------|:--------:|:----:|:--------------:|:----------:|:-----------------:|:-----------:|:---------:|:---------:|
+|Mask RCNN  | X50+FPN          |  55  | 1e-3 |  Y   |   N  |  1  |  N  |  **0.369**  |  **0.33**   |
+|| X50+FPN          |  55  | 1e-3 |  N   |   N  |  1  |  N  |  0.363  |  0.315  |
+|| X50+FPN(e29 Finetune)|  30  | 1e-3 |  Y   |   Y  |  1  |  N  |  0.365  |  0.325   |
+|| X50+FPN(e29 Finetune)|  30  | 1e-4 |  Y   |   Y  |  1  |  N  |  ?  |  ?   |
+|| X50+FPN(e55 Finetune)|  30  | 1e-4 |  Y   |   Y  |  1  |  N  |  0.365  |  0.325   |
+|| X50+FPN(e55 Finetune)|  30  | 1e-4 |  N   |   Y  |  1  |  N  |  0.358  |  0.306   |
+|| **R50+FPN**          |  80  | 1e-3 |  N   |   Y  |  2  |  Y  |  0.364  |  0.311   |
+
+| Meta Arch | Backbone |  epochs  |  lr  |w/ COCO pretrain|  **OHEM**  | RPN hidden layers | DCN(X50/GP) | bbox mAP  |  Mask mAP |
+|:---------:|:--------:|:----:|:--------------:|:----------:|:-----------------:|:-----------:|:---------:|:---------:|:---------:|
+|Cascade Mask RCNN| X50+FPN          |  55  | 1e-3 |  Y   |   N  |  1  |  N  |  **0.369**  |  **0.33**   |
+
+
+**Deprecated Exps** 😢
+| Meta Arch | Backbone |  epochs  |  lr  |w/ COCO pretrain|  **OHEM**  | RPN hidden layers | DCN(X50/GP) | bbox mAP  |  Mask mAP |
+|:---------:|----------|:--------:|:----:|:--------------:|:----------:|:-----------------:|:-----------:|:---------:|:---------:|
+|Mask RCNN  | GPWin+SFP        |  30  | 1e-3 |  N   |   N  |  1  |  N  |  0.215  |  0.177  |
+|| GPWin+SFP        |  30  | 1e-3 |  N   |   N  |  1  |  N  |  0.215  |  0.177  |
+|| GPWin+SFP        |  30  | 1e-3 |  N   |   Y  |  2  |  Y  |  ?  |  ?   |
+|| GPWin+SFP        |  30  | 1e-3 |  N   |   N  |  1  |  N  |  0.215  |  0.177  |
+|| GPWin+SFP        |  30  | 1e-3 |  N   |   Y  |  2  |  Y  |  ?  |  ?   |
 
 ## License
 
