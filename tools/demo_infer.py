@@ -16,6 +16,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Infer a detector')
     parser.add_argument('config_file', help='eval config file path')
     parser.add_argument('checkpoint_file', help='eval config file path')
+    parser.add_argument('task', type=str, default='demo', help="task to do ['test', 'demo']")
     parser.add_argument('--gpu_id', type=int, default=0, help='random seed')
 
     args = parser.parse_args()
@@ -82,21 +83,6 @@ def infer_single_image(model, img, model_cfg):
     # save the visualization results to image files
     model.show_result(img, result, out_file=DATASET_PREFIX+'datasets/demo_results/demo_{2}/{0}_{1}.jpg'.format('result', name, model_cfg))
 
-def main():
-    args = parse_args()
-    # args.config_file = 'outputs/mask_rcnn_x50_32x4d_dw_gn_cs_8x2_cs_1024/mask_rcnn_x50_32x4d_dw_gn_cs.py'
-    # args.checkpoint_file = 'outputs/mask_rcnn_x50_32x4d_dw_gn_cs_8x2_cs_1024/epoch_3.pth'
-
-    model_cfg = '_'.join(args.checkpoint_file.split('/')[-2:]).replace('.pth', '')
-    if not osp.exists(DATASET_PREFIX+'datasets/demo_results/demo_{}'.format(model_cfg)):
-        os.mkdir(DATASET_PREFIX+'datasets/demo_results/demo_{}'.format(model_cfg))
-    # if not osp.exists(osp.join('cityscapes','demo_{}'.format(model_cfg))):
-    #     os.mkdir(osp.join('cityscapes','demo_{}'.format(model_cfg)))
-    # build the model from a config file and a checkpoint file
-    model = init_detector(args.config_file, args.checkpoint_file, device='cuda:{}'.format(args.gpu_id))
-    for img in tqdm(glob('cityscapes/demo/*.png')):
-        infer_single_image(model, img, model_cfg)
-
 def gen_test_results(config, checkpoint, gpu_id=0, test_image_prefix="cityscapes/leftImg8bit/test", test_save_prefix = "cityscapes/test_results"):
     from glob import glob
     if not os.path.exists(test_save_prefix):
@@ -111,6 +97,26 @@ def gen_test_results(config, checkpoint, gpu_id=0, test_image_prefix="cityscapes
         result = inference_detector(model, img)
 
         save_single_result(result, name, test_save_prefix)
+
+def main():
+    args = parse_args()
+    # args.config_file = 'outputs/mask_rcnn_x50_32x4d_dw_gn_cs_8x2_cs_1024/mask_rcnn_x50_32x4d_dw_gn_cs.py'
+    # args.checkpoint_file = 'outputs/mask_rcnn_x50_32x4d_dw_gn_cs_8x2_cs_1024/epoch_3.pth'
+    if args.task == 'demo': 
+        model_cfg = '_'.join(args.checkpoint_file.split('/')[-2:]).replace('.pth', '')
+        if not osp.exists(DATASET_PREFIX+'datasets/demo_results/demo_{}'.format(model_cfg)):
+            os.mkdir(DATASET_PREFIX+'datasets/demo_results/demo_{}'.format(model_cfg))
+        # if not osp.exists(osp.join('cityscapes','demo_{}'.format(model_cfg))):
+        #     os.mkdir(osp.join('cityscapes','demo_{}'.format(model_cfg)))
+        # build the model from a config file and a checkpoint file
+        model = init_detector(args.config_file, args.checkpoint_file, device='cuda:{}'.format(args.gpu_id))
+        for img in tqdm(glob('cityscapes/demo/*.png')):
+            infer_single_image(model, img, model_cfg)
+    elif args.task == 'test':
+        gen_test_results(args.config_file, args.checkpoint_file, args.gpu_id)
+    else:
+        raise ValueError('Unknown task!')
+
 
 if __name__ == '__main__':
     # fetch_val_images()
