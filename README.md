@@ -112,28 +112,46 @@ model = dict(
 )
 ```
 
+### 4. $2 \times WinBlock \to WinBlock+SwinBlock$ `(0427)`
+
+### 5. DCNv2 in SFP and GPBlock `(0427)`
+DCV v2 的实现配置
+```python
+model = dict(
+    backbone=dict(
+        dcn=dict(type='DCNv2', deform_groups=1, fallback_on_stride=False),
+        stage_with_dcn=(False, True, True, True)))
+```
+- 考虑在 X50 backbone 中使用 `DCNv2`
+- 考虑在 GPWin/GPSwin 中的GPModule使用 `DCNv2`
+
+**TODO RPN activation type -> GELU?**
+
 ### N. Results
 
 **All** based on `Mask RCNN`. :sunglasses:
 
-| Backbone |w/ COCO pretrain|  **OHEM**  | RPN hidden layers | DCN(GP) | bbox mAP  |  Mask mAP |
-|----------|:--------------:|:----------:|:-----------------:|:-------:|:---------:|:---------:|
-| GPWin+SFP |  N   |   N  |  1  |  N  |  0.215  |  0.177  |
-| GPWin+SFP |  N   |   Y  |  2  |  Y  |  ?  |  ?   |
-| X50+FPN   |  Y   |   N  |  1  |  N  |  **0.365**  |  **0.315**   |
-| X50+FPN   |  N   |   N  |  1  |  N  |  **0.365**  |  **0.315**   |
-| X50+FPN   |  Y   |   Y  |  2  |  Y  |  ?  |  ?   |
-| X50+FPN   |  N   |   Y  |  2  |  Y  |  ?  |  ?   |
+| Backbone |  epochs  |  lr  |w/ COCO pretrain|  **OHEM**  | RPN hidden layers | DCN(X50/GP) | bbox mAP  |  Mask mAP |
+|----------|:--------:|:----:|:--------------:|:----------:|:-----------------:|:-----------:|:---------:|:---------:|
+| X50+FPN          |  55  | 1e-3 |  Y   |   N  |  1  |  N  |  **0.369**  |  **0.33**   |
+| X50+FPN          |  55  | 1e-3 |  N   |   N  |  1  |  N  |  0.363  |  0.315  |
+| X50+FPN finetune |  20  | 1e-3 |  Y   | ==Y==|  1  |  N  |  ?  |  ?  |
+| X50+FPN finetune |  20  | 1e-3 |  N   | ==Y==|  1  |  N  |  ?  |  ?  |
+| X50+FPN finetune |  25  | 1e-4 |  Y   | ==Y==|  1  |  N  |  0.365  |  0.325  |
+| X50+FPN finetune |  25  | 1e-4 |  N   | ==Y==|  1  |  N  |  0.358  |  0.306  |
+| GPWin+SFP        |  30  | 1e-3 |  N   |   N  |  1  |  N  |  0.215  |  0.177  |
+| GPWin+SFP        |  30  | 1e-3 |  N   |   N  |  1  |  N  |  0.215  |  0.177  |
+| GPWin+SFP        |  30  | 1e-3 |  N   |   Y  |  2  |  Y  |  ?  |  ?   |
+| GPWin+SFP        |  30  | 1e-3 |  N   |   N  |  1  |  N  |  0.215  |  0.177  |
+| GPWin+SFP        |  30  | 1e-3 |  N   |   Y  |  2  |  Y  |  ?  |  ?   |
 
 ## License
 
 This project is released under the [Apache 2.0 license](LICENSE).
 
-## Installation
+## Installation and Tutorials
 
 Please refer to [get_started.md](docs/en/get_started.md) for installation.
-
-## Getting Started
 
 Please see [get_started.md](docs/en/get_started.md) for the basic usage of MMDetection.
 We provide [detection colab tutorial](demo/MMDet_Tutorial.ipynb) and [instance segmentation colab tutorial](demo/MMDet_InstanceSeg_Tutorial.ipynb), and full guidance for quick run [with existing dataset](docs/en/1_exist_data_model.md) and [with new dataset](docs/en/2_new_data_model.md) for beginners.
