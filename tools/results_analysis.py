@@ -100,7 +100,10 @@ def plot_curve(log_dicts, args):
                     xs = np.array(epochs)
                 ys = []
                 for epoch in epochs:
-                    ys += log_dict[epoch][metric]
+                    if len(log_dict[epoch][metric]) == 0:
+                        ys += [0]
+                    else:
+                        ys += log_dict[epoch][metric]
                 epochs_.append(xs)
                 values_.append(ys)
                 ys = np.array(ys)
