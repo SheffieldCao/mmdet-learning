@@ -27,12 +27,12 @@ model = dict(
 
 # data
 data = dict(
-    samples_per_gpu=2,
+    samples_per_gpu=3,
     workers_per_gpu=2,
 )
 
 # optimizer
-optimizer = dict(type='AdamW', lr=1e-3, weight_decay=5e-3)
+optimizer = dict(type='AdamW', lr=1e-4, weight_decay=5e-3)
 optimizer_config = dict()
 # learning policy
 lr_config = dict(
@@ -40,11 +40,11 @@ lr_config = dict(
     warmup='linear',
     warmup_iters=500,
     warmup_ratio=0.1,
-    step=[20, 42, 49, 52],
+    step=[20, 46, 53, 57],
     gamma=0.2
     )
-runner = dict(type='EpochBasedRunner', max_epochs=55)
+runner = dict(type='EpochBasedRunner', max_epochs=60)
 cudnn_benchmark = False
 
 # resume
-# resume_from = '~/mmdet/outputs/mask_rcnn_x50_32x4d_dw_gn_cs_2x2_cs_1024_from_scratch/epoch_9.pth'
+resume_from = '~/mmdet/outputs/cascade_mask_rcnn_x50_ws_gn_cs_4x3_1024_1e-4/epoch_7.pth'

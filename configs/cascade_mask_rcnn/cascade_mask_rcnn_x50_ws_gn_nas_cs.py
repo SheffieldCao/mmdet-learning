@@ -22,6 +22,7 @@ model = dict(
             type='Pretrained',
             checkpoint='open-mmlab://jhu/resnext50_32x4d_gn_ws')
     ),
+    neck=dict(type='NASFPN', stack_times=7, norm_cfg=norm_cfg),
     roi_head=dict(
         bbox_head=[
             dict(
@@ -35,12 +36,9 @@ model = dict(
                     target_means=[0., 0., 0., 0.],
                     target_stds=[0.1, 0.1, 0.2, 0.2]),
                 reg_class_agnostic=True,
-                cls_predictor_cfg=dict(type='NormedLinear', tempearture=20),
                 loss_cls=dict(
-                    type='SeesawLoss',
-                    p=0.8,
-                    q=2.0,
-                    num_classes=8,
+                    type='CrossEntropyLoss',
+                    use_sigmoid=False,
                     loss_weight=1.0),
                 loss_bbox=dict(type='SmoothL1Loss', beta=1.0,
                                loss_weight=1.0)),
@@ -55,12 +53,9 @@ model = dict(
                     target_means=[0., 0., 0., 0.],
                     target_stds=[0.05, 0.05, 0.1, 0.1]),
                 reg_class_agnostic=True,
-                cls_predictor_cfg=dict(type='NormedLinear', tempearture=20),
                 loss_cls=dict(
-                    type='SeesawLoss',
-                    p=0.8,
-                    q=2.0,
-                    num_classes=8,
+                    type='CrossEntropyLoss',
+                    use_sigmoid=False,
                     loss_weight=1.0),
                 loss_bbox=dict(type='SmoothL1Loss', beta=1.0,
                                loss_weight=1.0)),
@@ -75,28 +70,19 @@ model = dict(
                     target_means=[0., 0., 0., 0.],
                     target_stds=[0.033, 0.033, 0.067, 0.067]),
                 reg_class_agnostic=True,
-                cls_predictor_cfg=dict(type='NormedLinear', tempearture=20),
                 loss_cls=dict(
-                    type='SeesawLoss',
-                    p=0.8,
-                    q=2.0,
-                    num_classes=8,
+                    type='CrossEntropyLoss',
+                    use_sigmoid=False,
                     loss_weight=1.0),
                 loss_bbox=dict(type='SmoothL1Loss', beta=1.0, loss_weight=1.0))
         ],
-        mask_head=dict(
-            num_classes=8,
-            conv_cfg=conv_cfg, 
-            norm_cfg=norm_cfg,
-            predictor_cfg=dict(type='NormedConv2d', tempearture=20))
+        mask_head=dict(num_classes=8)
     )
 )
 
 ## fintune model series URL: <https://github.com/open-mmlab/mmdetection/tree/master/configs/gn%2Bws>_.
 # load_from='https://download.openmmlab.com/mmdetection/v2.0/gn%2Bws/mask_rcnn_x50_32x4d_fpn_gn_ws-all_2x_coco/mask_rcnn_x50_32x4d_fpn_gn_ws-all_2x_coco_20200216-649fdb6f.pth' #noqa
-# load_from = '~/mmdet/outputs/pretrained_models/mask_rcnn_x50_32x4d_fpn_gn_ws-all_2x_coco_20200216-649fdb6f.pth' #noqa
-
-load_from: None
+load_from = '~/mmdet/outputs/pretrained_models/mask_rcnn_x50_32x4d_fpn_gn_ws-all_2x_coco_20200216-649fdb6f.pth' #noqa
 
 # dataset settings
 img_h, img_w = 512, 1024
@@ -167,26 +153,27 @@ data = dict(
 evaluation = dict(metric=['bbox', 'segm'])
 
 # optimizer
-optimizer = dict(type='AdamW', lr=1e-4, weight_decay=5e-3)
+optimizer = dict(type='AdamW', lr=1e-3, weight_decay=5e-3)
 optimizer_config = dict()
 # learning policy
+lr_config = dict(
+    policy='CosineRestart',
+    warmup='linear',
+    warmup_iters=1000,
+    warmup_ratio=1.0 / 10,
+    periods=[40, 20, 10, 5],
+    restart_weights=[1, 0.1, 0.01, 0.001],
+    min_lr_ratio=1e-4)
 # lr_config = dict(
 #     policy='step',
 #     warmup='linear',
-#     warmup_iters=1000,
+#     warmup_iters=500,
 #     warmup_ratio=0.1,
 #     step=[30, 61, 71, 76],
 #     gamma=0.2
 #     )
-lr_config = dict(
-    policy='step',
-    warmup='linear',
-    warmup_iters=500,
-    warmup_ratio=0.1,
-    step=[19, 25, 28],
-    gamma=0.2)
-runner = dict(type='EpochBasedRunner', max_epochs=50)
+runner = dict(type='EpochBasedRunner', max_epochs=75)
 cudnn_benchmark = False
 
 # resume
-resume_from = '~/mmdet/outputs/cascade_mask_rcnn_x50_ws_gn_seasaw_normedmask_cs_4x2_1024_extracoco/epoch_40.pth'
+# resume_from = '~/mmdet/outputs/mask_rcnn_x50_32x4d_dw_gn_cs_2x2_cs_1024_from_scratch/epoch_9.pth'
