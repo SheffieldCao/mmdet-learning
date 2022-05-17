@@ -125,7 +125,12 @@ model = dict(
 - 考虑在 X50 backbone 中使用 `DCNv2`
 - 考虑在 GPWin/GPSwin 中的GPModule使用 `DCNv2`
 
-**TODO RPN activation type -> GELU?**
+### 6. Cascade Mask RCNN `(0503)`
+
+### 7. Seasaw loss `(0504)`
+[seesaw_loss](configs/_others_/seesaw_loss/cascade_mask_rcnn_r101_fpn_random_seesaw_loss_mstrain_2x_lvis_v1.py)
+
+### 8. NAS-FPN (Neural Architecture Search - FPN) `(0504)`
 
 ### N. Results
 
