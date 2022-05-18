@@ -12,7 +12,7 @@ import pycocotools.mask as maskUtils
 def collect_files(img_dir, gt_dir):
     suffix = 'leftImg8bit.png'
     files = []
-    for img_file in glob.glob(osp.join(img_dir, '**/*.png')):
+    for img_file in glob.glob(osp.join(img_dir, '*.png')):
         assert img_file.endswith(suffix), img_file
         inst_file = gt_dir + img_file[
             len(img_dir):-len(suffix)] + 'gtFine_instanceIds.png'
@@ -132,7 +132,7 @@ def parse_args():
 def main():
     args = parse_args()
     cityscapes_path = args.cityscapes_path
-    out_dir = args.out_dir if args.out_dir else cityscapes_path
+    out_dir = args.out_dir if args.out_dir else osp.join(cityscapes_path, 'annotations_dvis_mmdet_cvt')
     mmcv.mkdir_or_exist(out_dir)
 
     img_dir = osp.join(cityscapes_path, args.img_dir)
@@ -140,8 +140,7 @@ def main():
 
     set_name = dict(
         train='dvis_filtered_gtFine_train.json',
-        val='dvis_filtered_gtFine_val.json',
-        test='dvis_filtered_gtFine_test.json')
+        val='dvis_filtered_gtFine_val.json')
 
     for split, json_name in set_name.items():
         print(f'Converting {split} into {json_name}')
