@@ -1299,6 +1299,11 @@ class MinIoURandomCrop:
                 for key in results.get('seg_fields', []):
                     results[key] = results[key][patch[1]:patch[3],
                                                 patch[0]:patch[2]]
+
+                # depth fields
+                for key in results.get('depth_fields', []):
+                    results[key] = results[key][patch[1]:patch[3],
+                                                patch[0]:patch[2]]
                 return results
 
     def __repr__(self):
