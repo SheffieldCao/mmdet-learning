@@ -275,6 +275,23 @@ class Resize:
                     backend=self.backend)
             results[key] = gt_seg
 
+    def _resize_depth(self, results):
+        """Resize depth map with ``results['scale']``."""
+        for key in results.get('depth_fields', []):
+            if self.keep_ratio:
+                gt_depth = mmcv.imrescale(
+                    results[key],
+                    results['scale'],
+                    interpolation='nearest',
+                    backend=self.backend)
+            else:
+                gt_depth = mmcv.imresize(
+                    results[key],
+                    results['scale'],
+                    interpolation='nearest',
+                    backend=self.backend)
+            results[key] = gt_depth
+
     def __call__(self, results):
         """Call function to resize images, bounding boxes, masks, semantic
         segmentation map.
@@ -310,6 +327,7 @@ class Resize:
         self._resize_bboxes(results)
         self._resize_masks(results)
         self._resize_seg(results)
+        self._resize_depth(results)
         return results
 
     def __repr__(self):
