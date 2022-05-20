@@ -491,6 +491,12 @@ class RandomFlip:
             for key in results.get('seg_fields', []):
                 results[key] = mmcv.imflip(
                     results[key], direction=results['flip_direction'])
+            
+            # flip depths
+            for key in results.get('depth_fields', []):
+                results[key] = mmcv.imflip(
+                    results[key], direction=results['flip_direction'])
+                    
         return results
 
     def __repr__(self):
