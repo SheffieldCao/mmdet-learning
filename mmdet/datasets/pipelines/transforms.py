@@ -874,6 +874,10 @@ class RandomCrop:
         for key in results.get('seg_fields', []):
             results[key] = results[key][crop_y1:crop_y2, crop_x1:crop_x2]
 
+        # crop depth map
+        for key in results.get('depth_fields', []):
+            results[key] = results[key][crop_y1:crop_y2, crop_x1:crop_x2]
+
         return results
 
     def _get_crop_size(self, image_size):
