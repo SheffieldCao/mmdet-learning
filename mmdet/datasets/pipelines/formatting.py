@@ -187,6 +187,8 @@ class DefaultFormatBundle:
     - gt_masks: (1)to tensor, (2)to DataContainer (cpu_only=True)
     - gt_semantic_seg: (1)unsqueeze dim-0 (2)to tensor, \
                        (3)to DataContainer (stack=True)
+    - gt_depth: (1)unsqueeze dim-0 (2)to tensor, \
+                       (3)to DataContainer (stack=True)
 
     Args:
         img_to_float (bool): Whether to force the image to be converted to
@@ -199,7 +201,7 @@ class DefaultFormatBundle:
 
     def __init__(self,
                  img_to_float=True,
-                 pad_val=dict(img=0, masks=0, seg=255)):
+                 pad_val=dict(img=0, masks=0, seg=255, depth=0)):
         self.img_to_float = img_to_float
         self.pad_val = pad_val
 
@@ -242,6 +244,11 @@ class DefaultFormatBundle:
             results['gt_semantic_seg'] = DC(
                 to_tensor(results['gt_semantic_seg'][None, ...]),
                 padding_value=self.pad_val['seg'],
+                stack=True)
+        if 'gt_depth' in results:
+            results['gt_depth'] = DC(
+                to_tensor(results['gt_depth'][None, ...]),
+                padding_value=self.pad_val['depth'],
                 stack=True)
         return results
 
