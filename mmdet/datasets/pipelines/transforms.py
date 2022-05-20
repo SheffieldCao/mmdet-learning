@@ -496,7 +496,7 @@ class RandomFlip:
             for key in results.get('depth_fields', []):
                 results[key] = mmcv.imflip(
                     results[key], direction=results['flip_direction'])
-                    
+
         return results
 
     def __repr__(self):
@@ -614,7 +614,7 @@ class Pad:
                  size=None,
                  size_divisor=None,
                  pad_to_square=False,
-                 pad_val=dict(img=0, masks=0, seg=255)):
+                 pad_val=dict(img=0, masks=0, seg=255, depth=0)):
         self.size = size
         self.size_divisor = size_divisor
         if isinstance(pad_val, float) or isinstance(pad_val, int):
@@ -622,7 +622,7 @@ class Pad:
                 'pad_val of float type is deprecated now, '
                 f'please use pad_val=dict(img={pad_val}, '
                 f'masks={pad_val}, seg=255) instead.', DeprecationWarning)
-            pad_val = dict(img=pad_val, masks=pad_val, seg=255)
+            pad_val = dict(img=pad_val, masks=pad_val, seg=255, depth=0)
         assert isinstance(pad_val, dict)
         self.pad_val = pad_val
         self.pad_to_square = pad_to_square
@@ -669,6 +669,13 @@ class Pad:
             results[key] = mmcv.impad(
                 results[key], shape=results['pad_shape'][:2], pad_val=pad_val)
 
+    def _pad_depth(self, results):
+        """Pad depth map according to ``results['pad_shape']``."""
+        pad_val = self.pad_val.get('depth', 0)
+        for key in results.get('depth_fields', []):
+            results[key] = mmcv.impad(
+                results[key], shape=results['pad_shape'][:2], pad_val=pad_val)
+
     def __call__(self, results):
         """Call function to pad images, masks, semantic segmentation maps.
 
@@ -681,6 +688,7 @@ class Pad:
         self._pad_img(results)
         self._pad_masks(results)
         self._pad_seg(results)
+        self._pad_depth(results)
         return results
 
     def __repr__(self):
