@@ -1,9 +1,10 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 from .builder import DATASETS, PIPELINES, build_dataloader, build_dataset
 from .cityscapes import CityscapesDataset
+from .cityscapes_DVIS import CityscapesDVISDataset
 from .coco import CocoDataset
 from .coco_panoptic import CocoPanopticDataset
-from .custom import CustomDataset
+from .custom import CustomDataset, CocoDVISDataset
 from .dataset_wrappers import (ClassBalancedDataset, ConcatDataset,
                                MultiImageMixDataset, RepeatDataset)
 from .deepfashion import DeepFashionDataset
@@ -24,5 +25,6 @@ __all__ = [
     'ClassBalancedDataset', 'WIDERFaceDataset', 'DATASETS', 'PIPELINES',
     'build_dataset', 'replace_ImageToTensor', 'get_loading_pipeline',
     'NumClassCheckHook', 'CocoPanopticDataset', 'MultiImageMixDataset',
-    'OpenImagesDataset', 'OpenImagesChallengeDataset'
+    'OpenImagesDataset', 'OpenImagesChallengeDataset', 'CocoDVISDataset',
+    'CityscapesDVISDataset'
 ]
