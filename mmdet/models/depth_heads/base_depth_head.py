@@ -8,34 +8,7 @@ from mmcv.cnn.bricks.transformer import FFN, nlc_to_nchw, nchw_to_nlc
 from mmcv.cnn.utils.weight_init import constant_init, kaiming_init
 from mmcv.runner import BaseModule, force_fp32
 from ..builder import HEADS, build_loss
-
-class CSABlock(BaseModule):
-    '''Cross Scale Attention Block'''
-    def __init__(self,
-                 embed_dims,
-                 num_heads,
-                 window_size,
-                 init_cfg=None):
-        super(CSABlock, self).__init__(init_cfg)
-        # mlp
-
-class MSRBlock(BaseModule):
-    def __init__(self,
-                 embed_dims,
-                 num_heads,
-                 window_size,
-                 init_cfg=None):
-        super(MSRBlock, self).__init__(init_cfg)
-        # mlp
-        # self.ffn = FFN(
-        #     embed_dims=embed_dims,
-        #     feedforward_channels=feedforward_channels,
-        #     num_fcs=2,
-        #     ffn_drop=drop_rate,
-        #     dropout_layer=dict(type='DropPath', drop_prob=drop_path_rate),
-        #     act_cfg=act_cfg,
-        #     add_identity=True,
-        #     init_cfg=None)
+from ..utils import interpolate_as
 
 
 @HEADS.register_module()
@@ -45,6 +18,9 @@ class SimpleDepthHead(BaseModule):
                  in_channels,
                  num_ins,
                  num_outs,
+                 loss_depth=dict(
+                     type='MSDepthLoss',
+                     loss_weight=1.0),
                  conv_cfg=None,
                  norm_cfg=None,
                  act_cfg=None,
@@ -57,6 +33,7 @@ class SimpleDepthHead(BaseModule):
         self.num_ins = num_ins
         self.num_outs = num_outs
         self.upsample_cfg = upsample_cfg.copy()
+        self.loss_depth = build_loss(loss_depth)
 
         assert self.num_ins == self.num_outs - 2
 
@@ -93,12 +70,29 @@ class SimpleDepthHead(BaseModule):
                     m.weight, mode='fan_out', nonlinearity='relu')
                 nn.init.constant_(m.bias, 0)
 
-    def simple_test(self,
-                    x,
-                    proposal_list,
-                    img_metas,
-                    proposals=None,
-                    rescale=False):
+    @force_fp32(apply_to=('depth_preds', ))
+    def loss(self, depth_preds, gt_depth):
+        """Get the loss of depth head.
+
+        Args:
+            depth_preds (Tensor): The input logits with the shape (N, C, H, W).
+            gt_depth: The ground truth of semantic segmentation with
+                the shape (N, H, W).
+
+        Returns:
+            dict: the loss of semantic head.
+        """
+        if depth_preds.shape[-2:] != gt_depth.shape[-2:]:
+            depth_preds = interpolate_as(depth_preds, gt_depth)
+        depth_preds = depth_preds.permute((0, 2, 3, 1))
+
+        # TODO: loss implementation
+        loss_depth = self.loss_depth(
+            depth_preds.reshape(-1, self.num_classes),  # => [NxHxW, C]
+            gt_depth.reshape(-1).long())
+        return dict(loss_depth=loss_depth)
+
+    def simple_test(self, img, img_metas, proposals=None, rescale=False):
         """Test without augmentation.
 
         Args:
@@ -121,48 +115,15 @@ class SimpleDepthHead(BaseModule):
             The outer list corresponds to each image, and first element
             of tuple is bbox results, second element is mask results.
         """
-        assert self.with_bbox, 'Bbox head must be implemented.'
 
-        det_bboxes, det_labels = self.simple_test_bboxes(
-            x, img_metas, proposal_list, self.test_cfg, rescale=rescale)
-
-        bbox_results = [
-            bbox2result(det_bboxes[i], det_labels[i],
-                        self.bbox_head.num_classes)
-            for i in range(len(det_bboxes))
-        ]
-
-        if not self.with_mask:
-            return bbox_results
+        x = self.extract_feat(img)
+        if proposals is None:
+            proposal_list = self.rpn_head.simple_test_rpn(x, img_metas)
         else:
-            segm_results = self.simple_test_mask(
-                x, img_metas, det_bboxes, det_labels, rescale=rescale)
-            return list(zip(bbox_results, segm_results))
+            proposal_list = proposals
 
-    # async def async_simple_test(self,
-    #                             x,
-    #                             proposal_list,
-    #                             img_metas,
-    #                             proposals=None,
-    #                             rescale=False):
-    #     """Async test without augmentation."""
-    #     assert self.with_bbox, 'Bbox head must be implemented.'
-
-    #     det_bboxes, det_labels = await self.async_test_bboxes(
-    #         x, img_metas, proposal_list, self.test_cfg, rescale=rescale)
-    #     bbox_results = bbox2result(det_bboxes, det_labels,
-    #                                self.bbox_head.num_classes)
-    #     if not self.with_mask:
-    #         return bbox_results
-    #     else:
-    #         segm_results = await self.async_test_mask(
-    #             x,
-    #             img_metas,
-    #             det_bboxes,
-    #             det_labels,
-    #             rescale=rescale,
-    #             mask_test_cfg=self.test_cfg.get('mask'))
-    #         return bbox_results, segm_results
+        return self.roi_head.simple_test(
+            x, proposal_list, img_metas, rescale=rescale)
 
     def aug_test(self, x, img_metas, rescale=False):
         """Test with augmentations.
@@ -190,30 +151,33 @@ class SimpleDepthHead(BaseModule):
         else:
             return [bbox_results]
 
-    def forward_dummy(self, x, proposals):
-        """Dummy forward function."""
-        # bbox head
-        outs = ()
-        rois = bbox2roi([proposals])
-        if self.with_bbox:
-            bbox_results = self._bbox_forward(x, rois)
-            outs = outs + (bbox_results['cls_score'],
-                           bbox_results['bbox_pred'])
-        # mask head
-        if self.with_mask:
-            mask_rois = rois[:100]
-            mask_results = self._mask_forward(x, mask_rois)
-            outs = outs + (mask_results['mask_pred'], )
-        return outs
+    # def forward_dummy(self, x, proposals):
+    #     """Dummy forward function.
+    #     Used for computing network flops.
+    #     """
+    #     # bbox head
+    #     outs = ()
+    #     rois = bbox2roi([proposals])
+    #     if self.with_bbox:
+    #         bbox_results = self._bbox_forward(x, rois)
+    #         outs = outs + (bbox_results['cls_score'],
+    #                        bbox_results['bbox_pred'])
+    #     # mask head
+    #     if self.with_mask:
+    #         mask_rois = rois[:100]
+    #         mask_results = self._mask_forward(x, mask_rois)
+    #         outs = outs + (mask_results['mask_pred'], )
+    #     return outs
+
+    def forward_train(self, x, gt_depth):
+        output = self.forward(x)
+        depth_preds = output['depth_preds']
+        return self.loss(depth_preds, gt_depth)
 
     def forward_train(self,
                       x,
                       img_metas,
-                      proposal_list,
-                      gt_bboxes,
-                      gt_labels,
-                      gt_bboxes_ignore=None,
-                      gt_masks=None,
+                      gt_depths=None,
                       **kwargs):
         """
         Args:
@@ -293,79 +257,108 @@ class SimpleDepthHead(BaseModule):
             # Head
             outs.append(self.depth_head_convs[4-i](up_flow))
 
-        return tuple(outs)
+        return dict(depth_preds=outs)
 
-@HEADS.register_module()
-class BaseDepthHead(BaseModule, metaclass=ABCMeta):
-    """Base class for depth heads."""
+# class CSABlock(BaseModule):
+#     '''Cross Scale Attention Block'''
+#     def __init__(self,
+#                  embed_dims,
+#                  num_heads,
+#                  window_size,
+#                  init_cfg=None):
+#         super(CSABlock, self).__init__(init_cfg)
+#         # mlp
 
-    def __init__(self, init_cfg):
-        super(BaseDepthHead, self).__init__(init_cfg)
+# class MSRBlock(BaseModule):
+#     def __init__(self,
+#                  embed_dims,
+#                  num_heads,
+#                  window_size,
+#                  init_cfg=None):
+#         super(MSRBlock, self).__init__(init_cfg)
+#         # mlp
+#         # self.ffn = FFN(
+#         #     embed_dims=embed_dims,
+#         #     feedforward_channels=feedforward_channels,
+#         #     num_fcs=2,
+#         #     ffn_drop=drop_rate,
+#         #     dropout_layer=dict(type='DropPath', drop_prob=drop_path_rate),
+#         #     act_cfg=act_cfg,
+#         #     add_identity=True,
+#         #     init_cfg=None)
 
-    @abstractmethod
-    def loss(self, **kwargs):
-        pass
 
-    @abstractmethod
-    def get_results(self, **kwargs):
-        """Get precessed :obj:`DepthData` of multiple images."""
-        pass
+# @HEADS.register_module()
+# class BaseDepthHead(BaseModule, metaclass=ABCMeta):
+#     """Base class for depth heads."""
 
-    def forward_train(self,
-                      x,
-                      gts,
-                      img_metas,
-                      **kwargs):
-        """
-        Args:
-            x (list[Tensor] | tuple[Tensor]): Features from FPN.
-                Each has a shape (B, C, H, W).
-            gts (list[Tensor]): Ground truth labels of all images.
-                each has a shape (num_gts,).
-            img_metas (list[dict]): Meta information of each image, e.g.,
-                image size, scaling factor, etc.
+#     def __init__(self, init_cfg):
+#         super(BaseDepthHead, self).__init__(init_cfg)
 
-        Returns:
-            dict[str, Tensor]: A dictionary of loss components.
-        """
-        outs = self(x)
+#     @abstractmethod
+#     def loss(self, **kwargs):
+#         pass
 
-        assert isinstance(outs, tuple), 'Forward results should be a tuple, ' \
-                                        'even if only one item is returned'
-        loss = self.loss(
-            *outs,
-            gt_labels=gts,
-            img_metas=img_metas,
-            **kwargs)
-        return loss
+#     @abstractmethod
+#     def get_results(self, **kwargs):
+#         """Get precessed :obj:`DepthData` of multiple images."""
+#         pass
 
-    def simple_test(self,
-                    feats,
-                    img_metas,
-                    rescale=False,
-                    **kwargs):
-        """Test function without test-time augmentation.
+#     def forward_train(self,
+#                       x,
+#                       gts,
+#                       img_metas,
+#                       **kwargs):
+#         """
+#         Args:
+#             x (list[Tensor] | tuple[Tensor]): Features from FPN.
+#                 Each has a shape (B, C, H, W).
+#             gts (list[Tensor]): Ground truth labels of all images.
+#                 each has a shape (num_gts,).
+#             img_metas (list[dict]): Meta information of each image, e.g.,
+#                 image size, scaling factor, etc.
 
-        Args:
-            feats (tuple[torch.Tensor]): Multi-level features from the
-                upstream network, each is a 4D-tensor.
-            img_metas (list[dict]): List of image information.
-            rescale (bool, optional): Whether to rescale the results.
-                Defaults to False.
+#         Returns:
+#             dict[str, Tensor]: A dictionary of loss components.
+#         """
+#         outs = self(x)
 
-        Returns:
-            list[obj:`DepthData`]: Relative depth map \
-                results of each image after the post process. \
-        """
-        outs = self(feats)
+#         assert isinstance(outs, tuple), 'Forward results should be a tuple, ' \
+#                                         'even if only one item is returned'
+#         loss = self.loss(
+#             *outs,
+#             gt_labels=gts,
+#             img_metas=img_metas,
+#             **kwargs)
+#         return loss
 
-        mask_inputs = outs + (img_metas, )
-        results_list = self.get_results(
-            *mask_inputs,
-            rescale=rescale,
-            **kwargs)
-        return results_list
+#     def simple_test(self,
+#                     feats,
+#                     img_metas,
+#                     rescale=False,
+#                     **kwargs):
+#         """Test function without test-time augmentation.
 
-    def onnx_export(self, img, img_metas):
-        raise NotImplementedError(f'{self.__class__.__name__} does '
-                                  f'not support ONNX EXPORT')
+#         Args:
+#             feats (tuple[torch.Tensor]): Multi-level features from the
+#                 upstream network, each is a 4D-tensor.
+#             img_metas (list[dict]): List of image information.
+#             rescale (bool, optional): Whether to rescale the results.
+#                 Defaults to False.
+
+#         Returns:
+#             list[obj:`DepthData`]: Relative depth map \
+#                 results of each image after the post process. \
+#         """
+#         outs = self(feats)
+
+#         mask_inputs = outs + (img_metas, )
+#         results_list = self.get_results(
+#             *mask_inputs,
+#             rescale=rescale,
+#             **kwargs)
+#         return results_list
+
+#     def onnx_export(self, img, img_metas):
+#         raise NotImplementedError(f'{self.__class__.__name__} does '
+#                                   f'not support ONNX EXPORT')
