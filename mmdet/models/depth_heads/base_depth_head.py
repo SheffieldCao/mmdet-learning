@@ -25,6 +25,7 @@ class SimpleDepthHead(BaseModule):
                  conv_cfg=None,
                  norm_cfg=None,
                  act_cfg=None,
+                 ffn_act_cfg=None,
                  upsample_cfg=dict(mode='bilinear', scale_factor=2),
                  init_cfg=dict(
                      type='Xavier', layer='Conv2d', distribution='uniform')):
@@ -45,9 +46,9 @@ class SimpleDepthHead(BaseModule):
             if i == self.num_outs-1:
                 f_conv = None
             else:
-                f_conv = FFN(self.in_channels, 4*self.in_channels, act_cfg=act_cfg, init_cfg=init_cfg)
+                f_conv = FFN(self.in_channels[0], 4*self.in_channels[0], act_cfg=act_cfg, init_cfg=init_cfg)
             d_conv = nn.Sequential(
-                ConvModule(self.in_channels,
+                ConvModule(self.in_channels[0],
                                 1,
                                 3,
                                 padding=1,
@@ -122,7 +123,8 @@ class SimpleDepthHead(BaseModule):
             h, w, _ = img_metas[0]['ori_shape']
             depth_preds = F.interpolate(
                 depth_preds, size=(h, w), mode='bilinear', align_corners=False)
-        return depth_preds
+        assert depth_preds.size()[1] == 1, "depth_pred channel != 1"
+        return [depth_preds[i,0,...] for i in range(depth_preds.size()[0])]
 
     def aug_test(self, x, img_metas, rescale=False):
         """Test with augmentations.
@@ -149,12 +151,9 @@ class SimpleDepthHead(BaseModule):
 
     def forward(self, inputs):
         """Forward function."""
-        assert len(inputs) == self.num_ins
-        inputs = [None, None] + inputs
-
         outs = []
         # build heads
-        up_flow = input[-1]
+        up_flow = inputs[-1]
         for i in range(self.num_outs):
             # Fuse
             if i == 0:
@@ -163,8 +162,8 @@ class SimpleDepthHead(BaseModule):
                 assert "scale_factor" in self.upsample_cfg
                 up_flow = F.interpolate(up_flow, **self.upsample_cfg)
                 hw_shape = up_flow.size()[-2:]
-                if inputs[4-i] is not None:
-                    up_flow = nlc_to_nchw(self.fuse_convs[4-i](nchw_to_nlc(inputs[4-i]+up_flow)), hw_shape)
+                if i < 3:
+                    up_flow = nlc_to_nchw(self.fuse_convs[4-i](nchw_to_nlc(inputs[3-i]+up_flow)), hw_shape)
                 else:
                     up_flow = nlc_to_nchw(self.fuse_convs[4-i](nchw_to_nlc(up_flow)), hw_shape)
                 assert up_flow.size()[-2:] == hw_shape, "Fuse Mlp output shape {0} != input shape {1}".format(up_flow.size(),hw_shape)
