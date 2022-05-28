@@ -94,7 +94,7 @@ class DepthEval:
             silog.mean(), abs_rel.mean(), log10.mean(), rms.mean(), sq_rel.mean(), log_rms.mean(), d1.mean(), d2.mean(),
             d3.mean()))
         
-        return dict(silog=silog, log10=log10, abs_rel=abs_rel, log_rms=log_rms, sq_rel=sq_rel, log_rms=log_rms, d1=d1, d2=d2, d3=d3)
+        return dict(silog=silog, log10=log10, abs_rel=abs_rel, rms=rms, sq_rel=sq_rel, log_rms=log_rms, d1=d1, d2=d2, d3=d3)
 
     def evaluateDepth(self, results, gtImageList, file_client):
         # get gts
