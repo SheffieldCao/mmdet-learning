@@ -67,6 +67,11 @@ class DVISTwoStageDetector(BaseDetector):
         """bool: whether the detector has a RoI head"""
         return hasattr(self, 'roi_head') and self.roi_head is not None
 
+    @property
+    def with_depth_head(self):
+        """bool: whether the detector has a depth head"""
+        return hasattr(self, 'depth_head') and self.depth_head is not None
+
     def extract_feat(self, img):
         """Directly extract features from the backbone+neck."""
         x = self.backbone(img)
@@ -99,6 +104,7 @@ class DVISTwoStageDetector(BaseDetector):
                       gt_labels,
                       gt_bboxes_ignore=None,
                       gt_masks=None,
+                      gt_depth=None,
                       proposals=None,
                       **kwargs):
         """
@@ -122,6 +128,8 @@ class DVISTwoStageDetector(BaseDetector):
 
             gt_masks (None | Tensor) : true segmentation masks for each box
                 used if the architecture supports a segmentation task.
+
+            gt_depth (None | Tensor) : true depth estimation results.
 
             proposals : override rpn proposals with custom proposals. Use when
                 `with_rpn` is False.
@@ -149,11 +157,16 @@ class DVISTwoStageDetector(BaseDetector):
         else:
             proposal_list = proposals
 
-        roi_losses = self.roi_head.forward_train(x, img_metas, proposal_list,
-                                                 gt_bboxes, gt_labels,
-                                                 gt_bboxes_ignore, gt_masks,
-                                                 **kwargs)
-        losses.update(roi_losses)
+        if self.with_roi_head:
+            roi_losses = self.roi_head.forward_train(x, img_metas, proposal_list,
+                                                    gt_bboxes, gt_labels,
+                                                    gt_bboxes_ignore, gt_masks,
+                                                    **kwargs)
+            losses.update(roi_losses)
+
+        if self.with_depth_head:
+            depth_losses = self.depth_head.forward_train(x, gt_depth)
+            losses.update(depth_losses)
 
         return losses
 
