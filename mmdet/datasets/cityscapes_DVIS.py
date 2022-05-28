@@ -13,10 +13,11 @@ from mmcv.utils import print_log
 
 from .builder import DATASETS
 from .coco import CocoDataset
+from ..core.evaluation import DepthEval
 
 
 @DATASETS.register_module()
-class CityscapesDVISDataset(CocoDataset):
+class CityscapesDVISDataset(CocoDataset, DepthEval):
 
     CLASSES = ('person', 'rider', 'car', 'truck', 'bus', 'train', 'motorcycle',
                'bicycle')
@@ -266,30 +267,33 @@ class CityscapesDVISDataset(CocoDataset):
         metrics = metric.copy() if isinstance(metric, list) else [metric]
 
         if 'depth' in metrics:
-            eval_results.update(
-                self._evaluate_depth(results, outfile_prefix, logger)
-            )
+            if 'depth_result' in results:
+                eval_results.update(
+                    self._evaluate_depth(results, outfile_prefix, logger)
+                )
             metrics.remove('depth')
 
         if 'cityscapes' in metrics:
-            eval_results.update(
-                self._evaluate_cityscapes(results, outfile_prefix, logger))
+            if 'ins_result' in results:
+                eval_results.update(
+                    self._evaluate_cityscapes(results, outfile_prefix, logger))
             metrics.remove('cityscapes')
 
         # left metrics are all coco metric
         if len(metrics) > 0:
-            # create CocoDataset with CityscapesDataset annotation
-            self_coco = CocoDataset(self.ann_file, self.pipeline.transforms,
-                                    None, self.data_root, self.img_prefix,
-                                    self.seg_prefix, self.proposal_file,
-                                    self.test_mode, self.filter_empty_gt)
-            # TODO: remove this in the future
-            # reload annotations of correct class
-            self_coco.CLASSES = self.CLASSES
-            self_coco.data_infos = self_coco.load_annotations(self.ann_file)
-            eval_results.update(
-                self_coco.evaluate(results, metrics, logger, outfile_prefix,
-                                   classwise, proposal_nums, iou_thrs))
+            if 'ins_result' in results:
+                # create CocoDataset with CityscapesDataset annotation
+                self_coco = CocoDataset(self.ann_file, self.pipeline.transforms,
+                                        None, self.data_root, self.img_prefix,
+                                        self.seg_prefix, self.proposal_file,
+                                        self.test_mode, self.filter_empty_gt)
+                # TODO: remove this in the future
+                # reload annotations of correct class
+                self_coco.CLASSES = self.CLASSES
+                self_coco.data_infos = self_coco.load_annotations(self.ann_file)
+                eval_results.update(
+                    self_coco.evaluate(results, metrics, logger, outfile_prefix,
+                                    classwise, proposal_nums, iou_thrs))
 
         return eval_results
 
@@ -313,21 +317,28 @@ class CityscapesDVISDataset(CocoDataset):
         Returns:
             dict[str, float]: DVPS STYLE evaluation metric.
         """
+        msg = 'Evaluating in Cityscapes style'
+        if logger is None:
+            msg = '\n' + msg
+        print_log(msg, logger=logger)
+
         assert isinstance(results, list), 'results must be a list'
         assert len(results) == len(self), (
             'The length of results is not equal to the dataset len: {} != {}'.
             format(len(results), len(self)))
+        
+        gtImageList = []
+        for i,gt in enumerate(self.data_infos):
+            assert i == gt['id'], "Error! self.data_infos[i]['id'] != i"
+            gt_path = os.path.join(self.seg_prefix, gt['depth_file'])
+            if os.path.isfile(gt_path):
+                gtImageList.append(gt_path)
+        assert len(gtImageList) == len(self), 'Cannot find all ground truth images' \
+            f' in {self.seg_prefix}.'
 
-        result_files = self.results2txt(results, outfile_prefix)
+        eval_results = self.evaluateDepth(results, gtImageList, self.file_client)
 
-        # evaluate depth
-        depth_eval_results = dict()
-        for result_file in result_files:
-            depth_eval_results.update(
-                depth_eval(result_file, logger=logger)
-            )
-
-        return depth_eval_results
+        return eval_results
 
     def _evaluate_cityscapes(self, results, txtfile_prefix, logger):
         """Evaluation in Cityscapes protocol.
