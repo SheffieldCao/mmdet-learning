@@ -27,7 +27,7 @@ class SILogLoss(nn.Module):
         self.loss_weight = loss_weight
         self.scale_factor = scale_factor
 
-    def forward(self, depth_est, depth_gt, multi_scale_loss_weight):
+    def forward(self, depth_est, depth_gt):
         assert isinstance(depth_est, torch.Tensor), "Depth forward outputs item type must be `torch.Tensor` ."
         mask = depth_gt > 1.0
         mask = mask.to(torch.bool)
@@ -35,4 +35,4 @@ class SILogLoss(nn.Module):
         log_dist = torch.log(depth_est[mask]) - torch.log(depth_gt[mask])
         D = (log_dist ** 2).mean() - self.variance_focus * (log_dist.mean() ** 2)
 
-        return self.loss_weight * multi_scale_loss_weight * self.scale_factor * torch.sqrt(D)
+        return self.loss_weight * self.scale_factor * torch.sqrt(D)
