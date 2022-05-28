@@ -44,6 +44,7 @@ from .yolof import YOLOF
 from .yolox import YOLOX
 from .dvis_mask_rcnn import DVISMaskRCNN
 from .dvis_two_stage import DVISTwoStageDetector
+from .dvis_depth import DVISSingleDepth
 
 __all__ = [
     'ATSS', 'BaseDetector', 'SingleStageDetector', 'TwoStageDetector', 'RPN',
@@ -54,5 +55,6 @@ __all__ = [
     'VFNet', 'DETR', 'TridentFasterRCNN', 'SparseRCNN', 'SCNet', 'SOLO',
     'DeformableDETR', 'AutoAssign', 'YOLOF', 'CenterNet', 'YOLOX',
     'TwoStagePanopticSegmentor', 'PanopticFPN', 'QueryInst', 'LAD', 'TOOD',
-    'MaskFormer', 'Mask2Former', 'DVISMaskRCNN', 'DVISTwoStageDetector'
+    'MaskFormer', 'Mask2Former', 'DVISMaskRCNN', 'DVISTwoStageDetector',
+    'DVISSingleDepth'
 ]
