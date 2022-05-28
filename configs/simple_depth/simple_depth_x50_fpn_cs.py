@@ -22,16 +22,18 @@ model = dict(
     neck=dict(
         type='FPN',
         out_channels=256,
+        conv_cfg=conv_cfg,
+        norm_cfg=norm_cfg,
         num_outs=4),
     depth_head=dict(
-        type='DepthHead',
-        in_channels=256,
+        type='SimpleDepthHead',
+        in_channels=[256, 256, 256],
         num_outs=5,
         loss_depth=dict(
             type='SILogLoss', variance_focus=0.85, multi_scale_weight=[1.0, 1.0, 1.0, 1.0, 1.0],
             scale_factor=10, loss_weight=1.0),
-        conv_cfg=conv_cfg,
-        norm_cfg=norm_cfg
+        ffn_act_cfg=dict(type='GELU'),
+        act_cfg=dict(type='GELU'),
     )
 )
 
@@ -62,7 +64,7 @@ train_pipeline = [
     dict(type='Normalize', **img_norm_cfg),
     dict(type='Pad', size_divisor=32),
     dict(type='DefaultFormatBundle'),
-    dict(type='Collect', keys=['img', 'gt_bboxes', 'gt_labels', 'gt_masks']),
+    dict(type='Collect', keys=['img', 'gt_depth']),
 ]
 test_pipeline = [
     dict(type='LoadImageFromFile'),
