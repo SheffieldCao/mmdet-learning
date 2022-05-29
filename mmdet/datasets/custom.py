@@ -249,6 +249,7 @@ class CustomDataset(Dataset):
                  proposal_file=None,
                  test_mode=False,
                  filter_empty_gt=True,
+                 do_kitti_benchmark_crop=False,
                  file_client_args=dict(backend='disk')):
         self.ann_file = ann_file
         self.data_root = data_root
@@ -257,6 +258,7 @@ class CustomDataset(Dataset):
         self.proposal_file = proposal_file
         self.test_mode = test_mode
         self.filter_empty_gt = filter_empty_gt
+        self.do_kitti_benchmark_crop = do_kitti_benchmark_crop
         self.file_client = mmcv.FileClient(**file_client_args)
         self.CLASSES = self.get_classes(classes)
 
