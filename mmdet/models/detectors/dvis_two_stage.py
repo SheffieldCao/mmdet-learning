@@ -91,10 +91,16 @@ class DVISTwoStageDetector(BaseDetector):
         if self.with_rpn:
             rpn_outs = self.rpn_head(x)
             outs = outs + (rpn_outs, )
-        proposals = torch.randn(1000, 4).to(img.device)
         # roi_head
-        roi_outs = self.roi_head.forward_dummy(x, proposals)
-        outs = outs + (roi_outs, )
+        if self.with_roi_head:
+            proposals = torch.randn(1000, 4).to(img.device)
+            roi_outs = self.roi_head.forward_dummy(x, proposals)
+            outs = outs + (roi_outs, )
+
+        # depth_head
+        if self.with_depth_head:
+            depth_outs = self.depth_head(x)
+            outs = outs + (depth_outs, )
         return outs
 
     def forward_train(self,
@@ -193,20 +199,28 @@ class DVISTwoStageDetector(BaseDetector):
 
         assert self.with_bbox, 'Bbox head must be implemented.'
         x = self.extract_feat(img)
-        if proposals is None:
-            proposal_list = self.rpn_head.simple_test_rpn(x, img_metas)
-        else:
-            proposal_list = proposals
+        if self.with_rpn:
+            if proposals is None:
+                proposal_list = self.rpn_head.simple_test_rpn(x, img_metas)
+            else:
+                proposal_list = proposals
         # # previous implementation
         # return self.roi_head.simple_test(
         #     x, proposal_list, img_metas, rescale=rescale)
-        ins_results = self.roi_head.simple_test(
-                        x, proposal_list, img_metas, rescale=rescale)
+        if self.with_roi_head:
+            ins_results = self.roi_head.simple_test(
+                            x, proposal_list, img_metas, rescale=rescale)
+        return_dict = dict(ins_results=ins_results)
+        return_dict.update(dict(batch_size=len(ins_results)))
         # TODO: add depth result, depth_results is the final scale output
         # depth_results list[tensor], length: batch_size
-        depth_results = self.depth_head.simple_test(x, img_metas, rescale=rescale)
-        assert len(ins_results) == len(depth_results), 'Batch size of ins_results and depth_results should be equal'
-        return list(zip(ins_results, depth_results))
+        if self.with_depth_head:
+            depth_results = self.depth_head.simple_test(x, img_metas, rescale=rescale)
+            return_dict.update(dict(depth_results=depth_results))
+        
+        if ins_results is not None and depth_results is not None:
+            assert len(ins_results) == len(depth_results), 'Batch size of ins_results and depth_results should be equal'
+        return return_dict
 
     def aug_test(self, imgs, img_metas, rescale=False):
         """Test with augmentations.

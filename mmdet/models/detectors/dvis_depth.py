@@ -107,8 +107,8 @@ class DVISSingleDepth(BaseDetector):
     def forward_train(self,
                       img,
                       img_metas,
-                      gt_bboxes,
-                      gt_labels,
+                      gt_bboxes=None,
+                      gt_labels=None,
                       gt_bboxes_ignore=None,
                       gt_masks=None,
                       gt_depth=None,
@@ -183,7 +183,7 @@ class DVISSingleDepth(BaseDetector):
                                 proposals=None,
                                 rescale=False):
         """Async test without augmentation."""
-        assert self.with_bbox, 'Bbox head must be implemented.'
+        assert self.with_depth_head, 'Bbox head must be implemented.'
         x = self.extract_feat(img)
 
         if proposals is None:
@@ -198,7 +198,7 @@ class DVISSingleDepth(BaseDetector):
     def simple_test(self, img, img_metas, proposals=None, rescale=False):
         """Test without augmentation."""
 
-        assert self.with_bbox, 'Bbox head must be implemented.'
+        assert self.with_depth_head, 'Bbox head must be implemented.'
         x = self.extract_feat(img)
         if self.with_rpn:
             if proposals is None:
