@@ -146,6 +146,7 @@ outputs/*
 
 cityscapes/*
 configs/_others_/*
+models/*
 
 pytest.py
 
