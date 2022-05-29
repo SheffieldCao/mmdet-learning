@@ -21,18 +21,19 @@ model = dict(
     ),
     neck=dict(
         type='FPN',
-        out_channels=256,
+        in_channels=[256, 512, 1024, 2048],
+        out_channels=128,
         conv_cfg=conv_cfg,
         norm_cfg=norm_cfg,
         num_outs=4),
     depth_head=dict(
         type='SimpleDepthHead',
-        in_channels=[256, 256, 256],
+        in_channels=[128]*3,
         num_outs=5,
         loss_depth=dict(
             type='SILogLoss', variance_focus=0.85, multi_scale_weight=[1.0, 1.0, 1.0, 1.0, 1.0],
-            scale_factor=10, loss_weight=1.0),
-        ffn_act_cfg=dict(type='GELU'),
+            scale_factor=1, loss_weight=1.0),
+        dcn_cfg=None,
         act_cfg=dict(type='GELU'),
     )
 )
@@ -48,10 +49,10 @@ img_norm_cfg = dict(
 train_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadDVISAnnotations', with_bbox=False, with_mask=False, with_depth=True),
-    dict(
-        type='RandomCrop',
-        crop_size=(0.5, 0.5),
-        crop_type='relative_range'),
+    # dict(
+    #     type='RandomCrop',
+    #     crop_size=(0.3, 0.3),
+    #     crop_type='relative_range'),
     dict(
         type='Resize', img_scale=(img_w, img_h), keep_ratio=True),
     dict(type='RandomFlip', flip_ratio=0.5),
@@ -68,18 +69,25 @@ train_pipeline = [
 ]
 test_pipeline = [
     dict(type='LoadImageFromFile'),
-    dict(type='Resize', img_scale=(2048, 1024), keep_ratio=True),
-    dict(type='Normalize', **img_norm_cfg),
-    dict(type='Pad', size_divisor=32),
-    dict(type='ImageToTensor', keys=['img']),
-    dict(type='Collect', keys=['img']),
+    dict(
+        type='MultiScaleFlipAug',
+        img_scale=(2048, 1024),
+        flip=False,
+        transforms=[
+            dict(type='Resize', keep_ratio=True),
+            dict(type='RandomFlip'),
+            dict(type='Normalize', **img_norm_cfg),
+            dict(type='Pad', size_divisor=32),
+            dict(type='ImageToTensor', keys=['img']),
+            dict(type='Collect', keys=['img']),
+        ])
 ]
 data = dict(
     samples_per_gpu=2,
     workers_per_gpu=2,
     train=dict(
         type='RepeatDataset',
-        times=8,
+        times=1,
         dataset=dict(
             type=dataset_type,
             ann_file=data_root +
@@ -109,3 +117,4 @@ lr_config = dict(
     step=[20, 42, 49, 52])
 runner = dict(type='EpochBasedRunner', max_epochs=55)
 cudnn_benchmark = False
+# find_unused_parameters=True

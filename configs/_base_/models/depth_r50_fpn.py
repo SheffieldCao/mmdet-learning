@@ -25,7 +25,6 @@ model = dict(
             type='SILogLoss', variance_focus=0.85, multi_scale_weight=[1.0, 1.0, 1.0, 1.0, 1.0],
             scale_factor=10, loss_weight=1.0),
         norm_cfg=dict(type='BN', requires_grad=True),
-        ffn_act_cfg=dict(type='GELU'),
         act_cfg=dict(type='GELU'),
         upsample_cfg=dict(mode='bilinear', scale_factor=2),
         init_cfg=dict(
