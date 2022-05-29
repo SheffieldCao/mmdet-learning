@@ -4,11 +4,31 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from mmcv.cnn.bricks import ConvModule
-from mmcv.cnn.bricks.transformer import FFN
+# from mmcv.cnn.bricks.transformer import FFN
 from mmcv.cnn.utils.weight_init import constant_init, kaiming_init
 from mmcv.runner import BaseModule, force_fp32
 from ..builder import HEADS, build_loss
 from ..utils import interpolate_as, nlc_to_nchw, nchw_to_nlc
+from ..backbones.resnet import Bottleneck, BasicBlock
+
+
+class SimpleBottleNeck(Bottleneck):
+    expansion = 2
+    def __init__(self,
+                 inplanes,
+                 planes,
+                 stride=1,
+                 dilation=1,
+                 downsample=None,
+                 style='pytorch',
+                 with_cp=False,
+                 conv_cfg=None,
+                 norm_cfg=dict(type='BN'),
+                 dcn=None,
+                 plugins=None,
+                 init_cfg=None):
+        super(SimpleBottleNeck, self).__init__(inplanes, planes, stride, dilation, downsample, 
+                                style, with_cp, conv_cfg, norm_cfg, dcn, plugins, init_cfg)
 
 
 @HEADS.register_module()
@@ -25,7 +45,7 @@ class SimpleDepthHead(BaseModule):
                  conv_cfg=None,
                  norm_cfg=None,
                  act_cfg=None,
-                 ffn_act_cfg=None,
+                 dcn_cfg=None,
                  upsample_cfg=dict(mode='bilinear', scale_factor=2),
                  init_cfg=dict(
                      type='Xavier', layer='Conv2d', distribution='uniform')):
@@ -46,7 +66,12 @@ class SimpleDepthHead(BaseModule):
             if i == self.num_outs-1:
                 f_conv = None
             else:
-                f_conv = FFN(self.in_channels[0], 4*self.in_channels[0], act_cfg=act_cfg, init_cfg=init_cfg)
+                f_conv = BasicBlock(self.in_channels[0],
+                                    self.in_channels[0],
+                                    conv_cfg=conv_cfg,
+                                    norm_cfg=norm_cfg,
+                                    dcn=dcn_cfg,
+                                    init_cfg=init_cfg)
             d_conv = nn.Sequential(
                 ConvModule(self.in_channels[0],
                                 1,
@@ -151,24 +176,29 @@ class SimpleDepthHead(BaseModule):
 
     def forward(self, inputs):
         """Forward function."""
+        # print("Inputs: ", inputs[0].size(), inputs[1].size(), inputs[2].size(), inputs[3].size())
         outs = []
         # build heads
-        up_flow = inputs[-1]
+        up_flow = inputs[2]
         for i in range(self.num_outs):
             # Fuse
             if i == 0:
+                # print('stage {0}: {1} {2}'.format(i,up_flow.size(), 'Not implemented'))
                 pass
             else:
                 assert "scale_factor" in self.upsample_cfg
                 up_flow = F.interpolate(up_flow, **self.upsample_cfg)
                 hw_shape = up_flow.size()[-2:]
                 if i < 3:
-                    up_flow = nlc_to_nchw(self.fuse_convs[4-i](nchw_to_nlc(inputs[3-i]+up_flow)), hw_shape)
+                    # print('stage {0}: {1} {2}'.format(i, inputs[2-i].size(), up_flow.size()))
+                    up_flow = self.fuse_convs[4-i](inputs[2-i]+up_flow)
                 else:
-                    up_flow = nlc_to_nchw(self.fuse_convs[4-i](nchw_to_nlc(up_flow)), hw_shape)
+                    # print('stage {0}: {1} {2}'.format(i, 'Not implemented',up_flow.size()))
+                    up_flow = self.fuse_convs[4-i](up_flow)
                 assert up_flow.size()[-2:] == hw_shape, "Fuse Mlp output shape {0} != input shape {1}".format(up_flow.size(),hw_shape)
             
             # Head
+            # print('Output stage {0}: {1}'.format(i, self.depth_head_convs[4-i](up_flow).size()))
             outs.append(self.depth_head_convs[4-i](up_flow))
 
         return dict(depth_preds=outs)

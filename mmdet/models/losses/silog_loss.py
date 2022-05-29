@@ -29,9 +29,9 @@ class SILogLoss(nn.Module):
 
     def forward(self, depth_est, depth_gt):
         assert isinstance(depth_est, torch.Tensor), "Depth forward outputs item type must be `torch.Tensor` ."
+        depth_gt = depth_gt.squeeze(1)
         mask = depth_gt > 1.0
         mask = mask.to(torch.bool)
-
         log_dist = torch.log(depth_est[mask]) - torch.log(depth_gt[mask])
         D = (log_dist ** 2).mean() - self.variance_focus * (log_dist.mean() ** 2)
 
