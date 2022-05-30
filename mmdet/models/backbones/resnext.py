@@ -6,7 +6,7 @@ from mmcv.cnn import build_conv_layer, build_norm_layer
 from ..builder import BACKBONES
 from ..utils import ResLayer
 from .resnet import Bottleneck as _Bottleneck
-from .resnet import ResNet
+from .resnet import ResNet, ResNet_
 
 
 class Bottleneck(_Bottleneck):
@@ -144,6 +144,53 @@ class ResNeXt(ResNet):
         self.groups = groups
         self.base_width = base_width
         super(ResNeXt, self).__init__(**kwargs)
+
+    def make_res_layer(self, **kwargs):
+        """Pack all blocks in a stage into a ``ResLayer``"""
+        return ResLayer(
+            groups=self.groups,
+            base_width=self.base_width,
+            base_channels=self.base_channels,
+            **kwargs)
+
+@BACKBONES.register_module()
+class ResNeXt_(ResNet_):
+    """ResNeXt backbone.
+
+    Args:
+        depth (int): Depth of resnet, from {18, 34, 50, 101, 152}.
+        in_channels (int): Number of input image channels. Default: 3.
+        num_stages (int): Resnet stages. Default: 4.
+        groups (int): Group of resnext.
+        base_width (int): Base width of resnext.
+        strides (Sequence[int]): Strides of the first block of each stage.
+        dilations (Sequence[int]): Dilation of each stage.
+        out_indices (Sequence[int]): Output from which stages.
+        style (str): `pytorch` or `caffe`. If set to "pytorch", the stride-two
+            layer is the 3x3 conv layer, otherwise the stride-two layer is
+            the first 1x1 conv layer.
+        frozen_stages (int): Stages to be frozen (all param fixed). -1 means
+            not freezing any parameters.
+        norm_cfg (dict): dictionary to construct and config norm layer.
+        norm_eval (bool): Whether to set norm layers to eval mode, namely,
+            freeze running stats (mean and var). Note: Effect on Batch Norm
+            and its variants only.
+        with_cp (bool): Use checkpoint or not. Using checkpoint will save some
+            memory while slowing down the training speed.
+        zero_init_residual (bool): whether to use zero init for last norm layer
+            in resblocks to let them behave as identity.
+    """
+
+    arch_settings = {
+        50: (Bottleneck, (3, 4, 6, 3)),
+        101: (Bottleneck, (3, 4, 23, 3)),
+        152: (Bottleneck, (3, 8, 36, 3))
+    }
+
+    def __init__(self, groups=1, base_width=4, **kwargs):
+        self.groups = groups
+        self.base_width = base_width
+        super(ResNeXt_, self).__init__(**kwargs)
 
     def make_res_layer(self, **kwargs):
         """Pack all blocks in a stage into a ``ResLayer``"""

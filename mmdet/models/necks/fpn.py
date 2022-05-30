@@ -1,6 +1,7 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import warnings
 import math
+import os
 from collections import OrderedDict
 import torch
 import torch.nn as nn
@@ -11,6 +12,7 @@ from mmcv.cnn import build_activation_layer, build_norm_layer, build_conv_layer
 
 from ..builder import NECKS
 from ..utils.transformer import nlc_to_nchw, nchw_to_nlc
+from ..depth_heads import ResnetEncoder, DepthDecoder
 
 @NECKS.register_module()
 class FPN(BaseModule):
@@ -638,6 +640,277 @@ class DAFPN(BaseModule):
         # build laterals
         laterals = [
             lateral_conv(inputs[i + self.start_level])
+            for i, lateral_conv in enumerate(self.lateral_convs)
+        ]
+
+        # build top-down path
+        used_backbone_levels = len(laterals)
+        for i in range(used_backbone_levels - 1, 0, -1):
+            # In some cases, fixing `scale factor` (e.g. 2) is preferred, but
+            #  it cannot co-exist with `size` in `F.interpolate`.
+            if 'scale_factor' in self.upsample_cfg:
+                # fix runtime error of "+=" inplace operation in PyTorch 1.10
+                laterals[i - 1] = laterals[i - 1] + F.interpolate(
+                    laterals[i], **self.upsample_cfg)
+            else:
+                prev_shape = laterals[i - 1].shape[2:]
+                laterals[i - 1] = laterals[i - 1] + F.interpolate(
+                    laterals[i], size=prev_shape, **self.upsample_cfg)
+
+        # build outputs
+        # part 1: from original levels
+        outs = [
+            self.fpn_convs[i](laterals[i]) for i in range(used_backbone_levels)
+        ]
+        # part 2: add extra levels
+        if self.num_outs > len(outs):
+            # use max pool to get more levels on top of outputs
+            # (e.g., Faster R-CNN, Mask R-CNN)
+            if not self.add_extra_convs:
+                for i in range(self.num_outs - used_backbone_levels):
+                    outs.append(F.max_pool2d(outs[-1], 1, stride=2))
+            # add conv layers on top of original feature maps (RetinaNet)
+            else:
+                if self.add_extra_convs == 'on_input':
+                    extra_source = inputs[self.backbone_end_level - 1]
+                elif self.add_extra_convs == 'on_lateral':
+                    extra_source = laterals[-1]
+                elif self.add_extra_convs == 'on_output':
+                    extra_source = outs[-1]
+                else:
+                    raise NotImplementedError
+                outs.append(self.fpn_convs[used_backbone_levels](extra_source))
+                for i in range(used_backbone_levels + 1, self.num_outs):
+                    if self.relu_before_extra_convs:
+                        outs.append(self.fpn_convs[i](F.relu(outs[-1])))
+                    else:
+                        outs.append(self.fpn_convs[i](outs[-1]))
+        return tuple(outs)
+
+class DA(BaseModule):
+    def __init__(self,
+                 in_channel_d,
+                 in_channel_ins,
+                 out_channel,
+                 conv_cfg=None,
+                 norm_cfg=None,
+                 act_cfg=None,
+                 init_cfg=dict(
+                     type='Xavier', layer='Conv2d', distribution='uniform')):
+        super(DA, self).__init__(init_cfg)
+        self.in_channel_d = in_channel_d
+        self.in_channel_ins = in_channel_ins
+        self.out_channel = out_channel
+        self.conv_cfg = conv_cfg
+        self.norm_cfg = norm_cfg
+        self.act_cfg = act_cfg
+
+        # linear proj
+        self.linear_d = ConvModule(self.in_channel_d, self.out_channel//8, 1, 1, conv_cfg=conv_cfg, norm_cfg=norm_cfg, inplace=False)
+        self.linear_ins = ConvModule(self.in_channel_ins, self.out_channel//8, 1, 1, conv_cfg=conv_cfg, norm_cfg=norm_cfg, inplace=False)
+        self.linear_v = ConvModule(self.in_channel_d, self.out_channel, 1, 1, conv_cfg=conv_cfg, norm_cfg=norm_cfg, inplace=False)
+        self.softmax = nn.Softmax(dim=-1)
+        self.short_cut = ConvModule(self.in_channel_ins, self.out_channel, 1, 1, conv_cfg=conv_cfg, norm_cfg=conv_cfg, inplace=False)
+        self.alpha = nn.Parameter(torch.zeros(1))
+
+    def forward(self, x, depth):
+        """Forward function."""
+        batch_size, _, h_x, w_x = x.size()
+        _, _, h_d, w_d = depth.size()
+        assert h_x == h_d and w_x == w_d, "Attention Size Do Not Match"
+
+        x_d = self.linear_d(depth).view(batch_size, -1, h_x*w_x).permute(0, 2, 1)
+        x_ins = self.linear_ins(x).view(batch_size, -1, h_x*w_x)
+        attention_map = self.softmax(torch.bmm(x_d, x_ins))
+
+        x_v = self.linear_v(depth).view(batch_size, -1, h_x*w_x)
+        x_da = torch.bmm(x_v, attention_map.permute(0, 2, 1)).view(batch_size, -1, h_x, w_x)
+        out = self.alpha*x_da + self.short_cut(x)
+        return out
+
+@NECKS.register_module()
+class DepthAwareFPN(BaseModule):
+    r"""Depth Aware Feature Pyramid Network.
+
+    This is an implementation of paper `Feature Pyramid Networks for Object
+    Detection <https://arxiv.org/abs/1612.03144>`_.
+
+    Args:
+        in_channels (list[int]): Number of input channels per scale.
+        out_channels (int): Number of output channels (used at each scale).
+        num_outs (int): Number of output scales.
+        start_level (int): Index of the start input backbone level used to
+            build the feature pyramid. Default: 0.
+        end_level (int): Index of the end input backbone level (exclusive) to
+            build the feature pyramid. Default: -1, which means the last level.
+        add_extra_convs (bool | str): If bool, it decides whether to add conv
+            layers on top of the original feature maps. Default to False.
+            If True, it is equivalent to `add_extra_convs='on_input'`.
+            If str, it specifies the source feature map of the extra convs.
+            Only the following options are allowed
+
+            - 'on_input': Last feat map of neck inputs (i.e. backbone feature).
+            - 'on_lateral': Last feature map after lateral convs.
+            - 'on_output': The last output feature map after fpn convs.
+        relu_before_extra_convs (bool): Whether to apply relu before the extra
+            conv. Default: False.
+        no_norm_on_lateral (bool): Whether to apply norm on lateral.
+            Default: False.
+        conv_cfg (dict): Config dict for convolution layer. Default: None.
+        norm_cfg (dict): Config dict for normalization layer. Default: None.
+        act_cfg (dict): Config dict for activation layer in ConvModule.
+            Default: None.
+        upsample_cfg (dict): Config dict for interpolate layer.
+            Default: dict(mode='nearest').
+        init_cfg (dict or list[dict], optional): Initialization config dict.
+
+    Example:
+        >>> import torch
+        >>> in_channels = [2, 3, 5, 7]
+        >>> scales = [340, 170, 84, 43]
+        >>> inputs = [torch.rand(1, c, s, s)
+        ...           for c, s in zip(in_channels, scales)]
+        >>> self = FPN(in_channels, 11, len(in_channels)).eval()
+        >>> outputs = self.forward(inputs)
+        >>> for i in range(len(outputs)):
+        ...     print(f'outputs[{i}].shape = {outputs[i].shape}')
+        outputs[0].shape = torch.Size([1, 11, 340, 340])
+        outputs[1].shape = torch.Size([1, 11, 170, 170])
+        outputs[2].shape = torch.Size([1, 11, 84, 84])
+        outputs[3].shape = torch.Size([1, 11, 43, 43])
+    """
+
+    def __init__(self,
+                 in_channels,
+                 out_channels,
+                 num_outs,
+                 start_level=0,
+                 end_level=-1,
+                 add_extra_convs=False,
+                 relu_before_extra_convs=False,
+                 no_norm_on_lateral=False,
+                 conv_cfg=None,
+                 norm_cfg=None,
+                 act_cfg=None,
+                 upsample_cfg=dict(mode='nearest'),
+                 depth_aware_levels=[2,3],
+                 depth_enc_layers=50,
+                 depth_state_dict_dir='/mnt/sdf/caoxu/mmdet/models/mono_resnet50_640x192',
+                 depth_enc_channels=[64,256,512,1024,2048],
+                 init_cfg=dict(
+                     type='Xavier', layer='Conv2d', distribution='uniform')):
+        super(DepthAwareFPN, self).__init__(init_cfg)
+        assert isinstance(in_channels, list)
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.num_ins = len(in_channels)
+        self.num_outs = num_outs
+        self.relu_before_extra_convs = relu_before_extra_convs
+        self.no_norm_on_lateral = no_norm_on_lateral
+        self.fp16_enabled = False
+        self.upsample_cfg = upsample_cfg.copy()
+
+        # depth model and config
+        self.depth_aware_levels = depth_aware_levels
+        self.depth_enc_layers = depth_enc_layers
+        self.depth_state_dict_dir = depth_state_dict_dir
+        self.depth_enc_channels = depth_enc_channels
+        self._make_depth_model()
+        self.depth_assisted_feats_channels = list(self.depth_dec.num_ch_dec[2:]) + [self.depth_enc_channels[-1]]
+
+        if end_level == -1:
+            self.backbone_end_level = self.num_ins
+            assert num_outs >= self.num_ins - start_level
+        else:
+            # if end_level < inputs, no extra level is allowed
+            self.backbone_end_level = end_level
+            assert end_level <= len(in_channels)
+            assert num_outs == end_level - start_level
+        self.start_level = start_level
+        self.end_level = end_level
+        self.add_extra_convs = add_extra_convs
+        assert isinstance(add_extra_convs, (str, bool))
+        if isinstance(add_extra_convs, str):
+            # Extra_convs_source choices: 'on_input', 'on_lateral', 'on_output'
+            assert add_extra_convs in ('on_input', 'on_lateral', 'on_output')
+        elif add_extra_convs:  # True
+            self.add_extra_convs = 'on_input'
+
+        self.lateral_convs = nn.ModuleList()
+        self.fpn_convs = nn.ModuleList()
+
+        for i in range(self.start_level, self.backbone_end_level):
+            l_conv = ConvModule(
+                in_channels[i],
+                out_channels,
+                1,
+                conv_cfg=conv_cfg,
+                norm_cfg=norm_cfg if not self.no_norm_on_lateral else None,
+                act_cfg=act_cfg,
+                inplace=False)
+            fpn_conv = ConvModule(
+                out_channels,
+                out_channels,
+                3,
+                padding=1,
+                conv_cfg=conv_cfg,
+                norm_cfg=norm_cfg,
+                act_cfg=act_cfg,
+                inplace=False)
+            if i in self.depth_aware_levels:
+                l_conv = DA(self.depth_assisted_feats_channels[i], in_channels[i], self.out_channels, conv_cfg=conv_cfg, norm_cfg=norm_cfg)
+
+            self.lateral_convs.append(l_conv)
+            self.fpn_convs.append(fpn_conv)
+
+        # add extra conv layers (e.g., RetinaNet)
+        extra_levels = num_outs - self.backbone_end_level + self.start_level
+        if self.add_extra_convs and extra_levels >= 1:
+            for i in range(extra_levels):
+                if i == 0 and self.add_extra_convs == 'on_input':
+                    in_channels = self.in_channels[self.backbone_end_level - 1]
+                else:
+                    in_channels = out_channels
+                extra_fpn_conv = ConvModule(
+                    in_channels,
+                    out_channels,
+                    3,
+                    stride=2,
+                    padding=1,
+                    conv_cfg=conv_cfg,
+                    norm_cfg=norm_cfg,
+                    act_cfg=act_cfg,
+                    inplace=False)
+                self.fpn_convs.append(extra_fpn_conv)
+
+    def _make_depth_model(self):
+        self.depth_enc = ResnetEncoder(self.depth_enc_layers, False)
+        msgs = self.depth_enc.load_state_dict(torch.load(os.path.join(self.depth_state_dict_dir, "encoder.pth"), map_location='cpu'), strict=False)
+        print("Loading Depth pretrained model:")
+        assert len(msgs[0]) == 0, 'Missing Keys:{}'.format(msgs[0])
+        print("Missing keys:{0}; unexpected keys:{1}".format(msgs[0], msgs[1]))
+        self.depth_dec = DepthDecoder(self.depth_enc_channels)
+        self.depth_dec.load_state_dict(torch.load(os.path.join(self.depth_state_dict_dir, 'depth.pth'), map_location='cpu'))
+
+    @auto_fp16()
+    def forward(self, x):
+        """Forward function."""
+        assert len(x) == 2, "Must consists of two parts `features` and `img`"
+        inputs, img = x
+        assert len(inputs) == len(self.in_channels)
+        assert len(img.size()) == 4 and img.size()[1] == 3, "Img size wrong!"
+
+        # build depths
+        depth_enc_feats = self.depth_enc(img)
+        depth_dec_feats = self.depth_dec(depth_enc_feats)
+        assisted_feats = []
+        for stage_id in range(2, 5, 1):
+            assisted_feats.append(depth_dec_feats[("dec_feat", stage_id)])
+        assisted_feats.append(depth_enc_feats[-1])
+
+        # build laterals
+        laterals = [
+            lateral_conv(inputs[i + self.start_level], assisted_feats[i+ self.start_level]) if i+self.start_level in self.depth_aware_levels else lateral_conv(inputs[i + self.start_level])
             for i, lateral_conv in enumerate(self.lateral_convs)
         ]
 

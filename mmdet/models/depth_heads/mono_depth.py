@@ -77,7 +77,11 @@ class ResnetEncoder(nn.Module):
 
         if num_layers > 34:
             self.num_ch_enc[1:] *= 4
-
+        
+        for param in self.parameters():
+            param.requires_grad = False
+            
+    @torch.no_grad()
     def forward(self, input_image):
         self.features = []
         x = (input_image - 0.45) / 0.225
@@ -125,8 +129,12 @@ class DepthDecoder(nn.Module):
         self.decoder = nn.ModuleList(list(self.convs.values()))
         self.sigmoid = nn.Sigmoid()
 
+        for param in self.parameters():
+            param.requires_grad = False
+
+    @torch.no_grad()
     def forward(self, input_features):
-        self.outputs = {}
+        outputs = {}
 
         # decoder
         x = input_features[-1]
@@ -137,7 +145,8 @@ class DepthDecoder(nn.Module):
                 x += [input_features[i - 1]]
             x = torch.cat(x, 1)
             x = self.convs[("upconv", i, 1)](x)
+            outputs[("dec_feat", i)] = x
             if i in self.scales:
-                self.outputs[("disp", i)] = self.sigmoid(self.convs[("dispconv", i)](x))
+                outputs[("disp", i)] = self.sigmoid(self.convs[("dispconv", i)](x))       
 
-        return self.outputs
+        return outputs
