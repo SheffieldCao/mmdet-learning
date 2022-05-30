@@ -721,6 +721,7 @@ class ResNet_(ResNet):
 
     def forward(self, x):
         """Forward function."""
+        img = x
         if self.deep_stem:
             x = self.stem(x)
         else:
@@ -734,7 +735,7 @@ class ResNet_(ResNet):
             x = res_layer(x)
             if i in self.out_indices:
                 outs.append(x)
-        return tuple(outs), x
+        return dict(outs=tuple(outs), img=img)
 
 @BACKBONES.register_module()
 class ResNetV1d(ResNet):

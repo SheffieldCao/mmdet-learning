@@ -710,7 +710,7 @@ class DA(BaseModule):
         self.linear_ins = ConvModule(self.in_channel_ins, self.out_channel//8, 1, 1, conv_cfg=conv_cfg, norm_cfg=norm_cfg, inplace=False)
         self.linear_v = ConvModule(self.in_channel_d, self.out_channel, 1, 1, conv_cfg=conv_cfg, norm_cfg=norm_cfg, inplace=False)
         self.softmax = nn.Softmax(dim=-1)
-        self.short_cut = ConvModule(self.in_channel_ins, self.out_channel, 1, 1, conv_cfg=conv_cfg, norm_cfg=conv_cfg, inplace=False)
+        self.short_cut = ConvModule(self.in_channel_ins, self.out_channel, 1, 1, conv_cfg=conv_cfg, norm_cfg=norm_cfg, inplace=False)
         self.alpha = nn.Parameter(torch.zeros(1))
 
     def forward(self, x, depth):
@@ -895,8 +895,9 @@ class DepthAwareFPN(BaseModule):
     @auto_fp16()
     def forward(self, x):
         """Forward function."""
-        assert len(x) == 2, "Must consists of two parts `features` and `img`"
-        inputs, img = x
+        # assert len(x) == 2, "Must consists of two parts `outs` and `img`"
+        assert 'img' in x and 'outs' in x, "Must consists of two parts `outs` and `img`"
+        inputs, img = x['outs'], x['img']
         assert len(inputs) == len(self.in_channels)
         assert len(img.size()) == 4 and img.size()[1] == 3, "Img size wrong!"
 
