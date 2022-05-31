@@ -50,7 +50,7 @@ def main():
     colors = ['darkorange', 'limegreen', 'lightcoral', 'deeppink', 'royalbluw']
     for i in range(len(keys)):
         stage = keys[i].split('lateral_convs.')[1][:1]
-        plt.plot(res[1:,i], '-', color=colors[i], label=r'FPN stage{}: $\alpha$'.format(stage))
+        plt.plot(res[1:,i], '-', color=colors[i], linewidth=2, label=r'FPN stage{}: $\alpha$'.format(stage))
     plt.xlabel('epoch', fontsize=18)
     plt.ylabel(r'$\alpha$', fontsize=18)
     plt.xticks(range(1,len(paths)//5*5+6,5))
