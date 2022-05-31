@@ -1,11 +1,12 @@
 # Bundle Training Analysis
 CONFIG=$1
 JSON=$2
+MODEL_DIR=$3
 INPUT_SHAPE=${INPUT_SHAPE:-[3,2048,1024]}
 LOSS_IMAGE=${LOSS_IMAGE:-losses.png}
 MAP_IMAGE=${MAP_IMAGE:-mAPs.png}
 
-# # Model Complexity
+# Model Complexity
 # python tools/analysis_tools/get_flops.py $CONFIG --gpu_id 7
 
 # Avg Training speed
@@ -19,3 +20,6 @@ python tools/results_analysis.py plot_curve $JSON --keys loss --out $LOSS_IMAGE 
 ## mAP
 python tools/results_analysis.py plot_curve $JSON --keys segm_mAP bbox_mAP --out $MAP_IMAGE --title $CONFIG --font_size 21
 # python tools/analysis_tools/analyze_logs.py plot_curve $JSON --keys segm_mAP bbox_mAP --out mAP_sns.png
+
+## Model weights
+python tools/model_analysis.py --model_dir $MODEL_DIR
