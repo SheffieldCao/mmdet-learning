@@ -83,12 +83,14 @@ def infer_single_image(model, img, model_cfg):
     # save the visualization results to image files
     model.show_result(img, result, out_file=DATASET_PREFIX+'datasets/demo_results/demo_{2}/{0}_{1}.jpg'.format('result', name, model_cfg))
 
-def gen_test_results(config, checkpoint, gpu_id=0, test_image_prefix="cityscapes/leftImg8bit/test", test_save_prefix = "cityscapes/test_results"):
+def gen_test_results(config, checkpoint, gpu_id=0, test_image_prefix="cityscapes/leftImg8bit/test", test_save_prefix = "/mnt/sdf/caoxu/datasets/cs_test_results"):
     from glob import glob
     if not os.path.exists(test_save_prefix):
         os.mkdir(test_save_prefix)
     img_list = glob(osp.join(test_image_prefix, '*/*.png'))
-
+    save_dir = os.path.join(test_save_prefix, checkpoint.split('/')[-2])
+    if not os.path.exists(save_dir):
+        os.mkdir(save_dir)
     model = init_detector(config, checkpoint, device='cuda:{}'.format(gpu_id))
     for img in tqdm(img_list):
         name, _ = img.split('/')[-1].split('.')
@@ -96,7 +98,7 @@ def gen_test_results(config, checkpoint, gpu_id=0, test_image_prefix="cityscapes
         # test a single image and show the results
         result = inference_detector(model, img)
 
-        save_single_result(result, name, test_save_prefix)
+        save_single_result(result, name, save_dir)
 
 def main():
     args = parse_args()
