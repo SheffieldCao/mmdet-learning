@@ -484,6 +484,44 @@ class PA(BaseModule):
         out = self.alpha*x_pa + x
         return out
 
+class AlphaHeadPA(BaseModule):
+    r'''Single Head Self Position Attention Module.
+    Refer to `DANet`. 
+    '''
+    def __init__(self,
+                 in_channel,
+                 conv_cfg=None,
+                 norm_cfg=None,
+                 act_cfg=None,
+                 init_cfg=dict(
+                     type='Xavier', layer='Conv2d', distribution='uniform')):
+        super(PA, self).__init__(init_cfg)
+        self.in_channel = in_channel
+        # self.out_channel = out_channel
+        self.conv_cfg = conv_cfg
+        self.norm_cfg = norm_cfg
+        self.act_cfg = act_cfg
+
+        # linear proj
+        self.linear_q = ConvModule(self.in_channel, self.in_channel//8, 1, 1, conv_cfg=conv_cfg, norm_cfg=norm_cfg, inplace=False)
+        self.linear_k = ConvModule(self.in_channel, self.in_channel//8, 1, 1, conv_cfg=conv_cfg, norm_cfg=norm_cfg, inplace=False)
+        self.linear_v = ConvModule(self.in_channel, self.in_channel, 1, 1, conv_cfg=conv_cfg, norm_cfg=norm_cfg, inplace=False)
+        self.softmax = nn.Softmax(dim=-1)
+        # self.short_cut = ConvModule(self.in_channel, self.in_channel, 1, 1, conv_cfg=conv_cfg, norm_cfg=conv_cfg, inplace=False)
+        
+    def forward(self, x):
+        """Forward function."""
+        batch_size, _, h_x, w_x = x.size()
+
+        x_k = self.linear_k(x).view(batch_size, -1, h_x*w_x).permute(0, 2, 1)
+        x_q = self.linear_q(x).view(batch_size, -1, h_x*w_x)
+        attention_map = self.softmax(torch.bmm(x_k, x_q))
+
+        x_v = self.linear_v(x).view(batch_size, -1, h_x*w_x)
+        x_pa = torch.bmm(x_v, attention_map.permute(0, 2, 1)).view(batch_size, -1, h_x, w_x)
+        out = self.alpha*x_pa + x
+        return out
+
 class UnpackLayerConv3d(nn.Module):
     """
     Unpacking layer with 3d convolutions. Takes a [B,C,H,W] tensor, convolves it
@@ -801,7 +839,7 @@ class PAUnpackingFPN(BaseModule):
                  no_norm_on_lateral=False,
                  conv_cfg=None,
                  norm_cfg=None,
-                 act_cfg=dict(type='GELU'),
+                 act_cfg=dict(type='GELU', requires_grad=True),
                  upsample_cfg=dict(scale_factor=2),
                  init_cfg=dict(
                      type='Xavier', layer='Conv2d', distribution='uniform')):
