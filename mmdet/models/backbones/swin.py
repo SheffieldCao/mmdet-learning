@@ -761,3 +761,133 @@ class SwinTransformer(BaseModule):
                 outs.append(out)
 
         return outs
+
+@BACKBONES.register_module()
+class SwinTransformer_(SwinTransformer):
+    """ Swin Transformer
+    A PyTorch implement of : `Swin Transformer:
+    Hierarchical Vision Transformer using Shifted Windows`  -
+        https://arxiv.org/abs/2103.14030
+
+    Inspiration from
+    https://github.com/microsoft/Swin-Transformer
+
+    Args:
+        pretrain_img_size (int | tuple[int]): The size of input image when
+            pretrain. Defaults: 224.
+        in_channels (int): The num of input channels.
+            Defaults: 3.
+        embed_dims (int): The feature dimension. Default: 96.
+        patch_size (int | tuple[int]): Patch size. Default: 4.
+        window_size (int): Window size. Default: 7.
+        mlp_ratio (int): Ratio of mlp hidden dim to embedding dim.
+            Default: 4.
+        depths (tuple[int]): Depths of each Swin Transformer stage.
+            Default: (2, 2, 6, 2).
+        num_heads (tuple[int]): Parallel attention heads of each Swin
+            Transformer stage. Default: (3, 6, 12, 24).
+        strides (tuple[int]): The patch merging or patch embedding stride of
+            each Swin Transformer stage. (In swin, we set kernel size equal to
+            stride.) Default: (4, 2, 2, 2).
+        out_indices (tuple[int]): Output from which stages.
+            Default: (0, 1, 2, 3).
+        qkv_bias (bool, optional): If True, add a learnable bias to query, key,
+            value. Default: True
+        qk_scale (float | None, optional): Override default qk scale of
+            head_dim ** -0.5 if set. Default: None.
+        patch_norm (bool): If add a norm layer for patch embed and patch
+            merging. Default: True.
+        drop_rate (float): Dropout rate. Defaults: 0.
+        attn_drop_rate (float): Attention dropout rate. Default: 0.
+        drop_path_rate (float): Stochastic depth rate. Defaults: 0.1.
+        use_abs_pos_embed (bool): If True, add absolute position embedding to
+            the patch embedding. Defaults: False.
+        act_cfg (dict): Config dict for activation layer.
+            Default: dict(type='LN').
+        norm_cfg (dict): Config dict for normalization layer at
+            output of backone. Defaults: dict(type='LN').
+        with_cp (bool, optional): Use checkpoint or not. Using checkpoint
+            will save some memory while slowing down the training speed.
+            Default: False.
+        pretrained (str, optional): model pretrained path. Default: None.
+        convert_weights (bool): The flag indicates whether the
+            pre-trained model is from the original repo. We may need
+            to convert some keys to make it compatible.
+            Default: False.
+        frozen_stages (int): Stages to be frozen (stop grad and set eval mode).
+            Default: -1 (-1 means not freezing any parameters).
+        init_cfg (dict, optional): The Config for initialization.
+            Defaults to None.
+    """
+
+    def __init__(self,
+                 pretrain_img_size=224,
+                 in_channels=3,
+                 embed_dims=96,
+                 patch_size=4,
+                 window_size=7,
+                 mlp_ratio=4,
+                 depths=(2, 2, 6, 2),
+                 num_heads=(3, 6, 12, 24),
+                 strides=(4, 2, 2, 2),
+                 out_indices=(0, 1, 2, 3),
+                 qkv_bias=True,
+                 qk_scale=None,
+                 patch_norm=True,
+                 drop_rate=0.,
+                 attn_drop_rate=0.,
+                 drop_path_rate=0.1,
+                 use_abs_pos_embed=False,
+                 act_cfg=dict(type='GELU'),
+                 norm_cfg=dict(type='LN'),
+                 with_cp=False,
+                 pretrained=None,
+                 convert_weights=False,
+                 frozen_stages=-1,
+                 init_cfg=None):
+        super(SwinTransformer_, self).__init__(
+            pretrain_img_size=pretrain_img_size,
+            in_channels=in_channels,
+            embed_dims=embed_dims,
+            patch_size=patch_size,
+            window_size=window_size,
+            mlp_ratio=mlp_ratio,
+            depths=depths,
+            num_heads=num_heads,
+            strides=strides,
+            out_indices=out_indices,
+            qkv_bias=qkv_bias,
+            qk_scale=qk_scale,
+            patch_norm=patch_norm,
+            drop_rate=drop_rate,
+            attn_drop_rate=attn_drop_rate,
+            drop_path_rate=drop_path_rate,
+            use_abs_pos_embed=use_abs_pos_embed,
+            act_cfg=act_cfg,
+            norm_cfg=norm_cfg,
+            with_cp=with_cp,
+            pretrained=pretrained,
+            convert_weights=convert_weights,
+            frozen_stages=frozen_stages,
+            init_cfg=init_cfg)
+
+    def forward(self, x):
+        img = x
+        x, hw_shape = self.patch_embed(x)
+
+        if self.use_abs_pos_embed:
+            x = x + self.absolute_pos_embed
+        x = self.drop_after_pos(x)
+
+        outs = []
+        for i, stage in enumerate(self.stages):
+            x, hw_shape, out, out_hw_shape = stage(x, hw_shape)
+            if i in self.out_indices:
+                norm_layer = getattr(self, f'norm{i}')
+                out = norm_layer(out)
+                out = out.view(-1, *out_hw_shape,
+                               self.num_features[i]).permute(0, 3, 1,
+                                                             2).contiguous()
+                outs.append(out)
+
+        return dict(outs=outs, img=img)
