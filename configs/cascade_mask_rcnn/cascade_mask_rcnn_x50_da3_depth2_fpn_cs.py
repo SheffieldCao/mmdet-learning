@@ -5,7 +5,7 @@ conv_cfg = dict(type='ConvWS')
 norm_cfg = dict(type='GN', num_groups=32, requires_grad=True)
 model = dict(
     backbone=dict(
-        type='ResNeXt',
+        type='ResNeXt_',
         depth=50,
         groups=32,
         base_width=4,
