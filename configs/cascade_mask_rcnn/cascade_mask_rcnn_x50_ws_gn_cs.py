@@ -27,8 +27,11 @@ load_from='~/mmdet/outputs/pretrained_models/mask_rcnn_x50_32x4d_fpn_gn_ws-all_2
 
 # data
 data = dict(
-    samples_per_gpu=6,
+    samples_per_gpu=2,
     workers_per_gpu=2,
+    train=dict(
+        type='RepeatDataset',
+        times=4,)
 )
 
 # optimizer
@@ -47,4 +50,4 @@ runner = dict(type='EpochBasedRunner', max_epochs=45)
 cudnn_benchmark = False
 
 # resume
-# resume_from = '~/mmdet/outputs/cascade_mask_rcnn_x50_ws_gn_cs_4x3_1024_1e-4/epoch_7.pth'
+resume_from = '~/mmdet/outputs/cascade_mask_rcnn_x50_ws_gn_cs_6x2_1024_1e-4/epoch_1.pth'
