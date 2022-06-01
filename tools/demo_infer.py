@@ -81,7 +81,7 @@ def infer_single_image(model, img, model_cfg):
     # test a single image and show the results
     result = inference_detector(model, img)
     # save the visualization results to image files
-    model.show_result(img, result, out_file=DATASET_PREFIX+'datasets/demo_results/demo_{2}/{0}_{1}.jpg'.format('result', name, model_cfg))
+    model.show_result(img, result, out_file=DATASET_PREFIX+'datasets/demo2_results/demo_{2}/{0}_{1}.jpg'.format('result', name, model_cfg))
 
 def gen_test_results(config, checkpoint, gpu_id=0, test_image_prefix="cityscapes/leftImg8bit/test", test_save_prefix = "/mnt/sdf/caoxu/datasets/cs_test_results"):
     from glob import glob
@@ -106,13 +106,13 @@ def main():
     # args.checkpoint_file = 'outputs/mask_rcnn_x50_32x4d_dw_gn_cs_8x2_cs_1024/epoch_3.pth'
     if args.task == 'demo': 
         model_cfg = '_'.join(args.checkpoint_file.split('/')[-2:]).replace('.pth', '')
-        if not osp.exists(DATASET_PREFIX+'datasets/demo_results/demo_{}'.format(model_cfg)):
-            os.mkdir(DATASET_PREFIX+'datasets/demo_results/demo_{}'.format(model_cfg))
+        if not osp.exists(DATASET_PREFIX+'datasets/demo2_results/demo2_{}'.format(model_cfg)):
+            os.mkdir(DATASET_PREFIX+'datasets/demo2_results/demo2_{}'.format(model_cfg))
         # if not osp.exists(osp.join('cityscapes','demo_{}'.format(model_cfg))):
         #     os.mkdir(osp.join('cityscapes','demo_{}'.format(model_cfg)))
         # build the model from a config file and a checkpoint file
         model = init_detector(args.config_file, args.checkpoint_file, device='cuda:{}'.format(args.gpu_id))
-        for img in tqdm(glob('cityscapes/demo/*.png')):
+        for img in tqdm(glob(DATASET_PREFIX+'datasets/demo2/*.png')):
             infer_single_image(model, img, model_cfg)
     elif args.task == 'test':
         gen_test_results(args.config_file, args.checkpoint_file, args.gpu_id)
