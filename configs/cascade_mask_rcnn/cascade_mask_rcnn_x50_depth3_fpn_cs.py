@@ -58,4 +58,4 @@ runner = dict(type='EpochBasedRunner', max_epochs=45)
 cudnn_benchmark = False
 
 # resume
-# resume_from = '~/mmdet/outputs/cascade_mask_rcnn_x50_ws_gn_cs_4x3_1024_1e-4/epoch_7.pth'
+resume_from = '~/mmdet/outputs/cascade_mask_rcnn_x50_depth3_fpn_cs_6x2_1024_1e-4/epoch_4.pth'
