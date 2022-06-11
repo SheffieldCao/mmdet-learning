@@ -628,6 +628,7 @@ class DAFPN(BaseModule):
                  num_outs,
                  start_level=0,
                  end_level=-1,
+                 pa_levels=[3],
                  add_extra_convs=False,
                  relu_before_extra_convs=False,
                  no_norm_on_lateral=False,
@@ -643,6 +644,7 @@ class DAFPN(BaseModule):
         self.out_channels = out_channels
         self.num_ins = len(in_channels)
         self.num_outs = num_outs
+        self.pa_levels = pa_levels
         self.relu_before_extra_convs = relu_before_extra_convs
         self.no_norm_on_lateral = no_norm_on_lateral
         self.fp16_enabled = False
@@ -687,7 +689,7 @@ class DAFPN(BaseModule):
                 norm_cfg=norm_cfg,
                 act_cfg=act_cfg,
                 inplace=False)
-            if i == self.backbone_end_level - 1:
+            if i in self.pa_levels:
                 l_conv = nn.Sequential(
                     ConvModule(in_channels[i],
                                 out_channels,
@@ -839,7 +841,7 @@ class PAUnpackingFPN(BaseModule):
                  no_norm_on_lateral=False,
                  conv_cfg=None,
                  norm_cfg=None,
-                 act_cfg=dict(type='GELU', requires_grad=True),
+                 act_cfg=dict(type='GELU'),
                  upsample_cfg=dict(scale_factor=2),
                  init_cfg=dict(
                      type='Xavier', layer='Conv2d', distribution='uniform')):

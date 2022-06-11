@@ -36,7 +36,7 @@ data = dict(
     workers_per_gpu=2,
     train=dict(
         type='RepeatDataset',
-        times=4,
+        times=1,
     )
 )
 

@@ -81,7 +81,7 @@ def infer_single_image(model, img, model_cfg):
     # test a single image and show the results
     result = inference_detector(model, img)
     # save the visualization results to image files
-    model.show_result(img, result, out_file=DATASET_PREFIX+'datasets/demo2_results/demo_{2}/{0}_{1}.jpg'.format('result', name, model_cfg))
+    model.show_result(img, result, out_file=DATASET_PREFIX+'datasets/demo2_results/demo2_{2}/{0}_{1}.jpg'.format('result', name, model_cfg))
 
 def gen_test_results(config, checkpoint, gpu_id=0, test_image_prefix="cityscapes/leftImg8bit/test", test_save_prefix = "/mnt/sdf/caoxu/datasets/cs_test_results"):
     from glob import glob
@@ -112,7 +112,7 @@ def main():
         #     os.mkdir(osp.join('cityscapes','demo_{}'.format(model_cfg)))
         # build the model from a config file and a checkpoint file
         model = init_detector(args.config_file, args.checkpoint_file, device='cuda:{}'.format(args.gpu_id))
-        for img in tqdm(glob(DATASET_PREFIX+'datasets/demo2/*.png')):
+        for img in tqdm(glob(DATASET_PREFIX+'datasets/cityscapes/leftImg8bit/val/*/*.png')):
             infer_single_image(model, img, model_cfg)
     elif args.task == 'test':
         gen_test_results(args.config_file, args.checkpoint_file, args.gpu_id)

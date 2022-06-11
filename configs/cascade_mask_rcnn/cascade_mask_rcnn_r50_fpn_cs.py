@@ -126,7 +126,7 @@ data = dict(
     workers_per_gpu=2,
     train=dict(
         type='RepeatDataset',
-        times=8,
+        times=4,
         dataset=dict(
             type=dataset_type,
             ann_file=data_root +
@@ -148,7 +148,7 @@ data = dict(
 evaluation = dict(metric=['bbox', 'segm'])
 
 # optimizer
-optimizer = dict(type='AdamW', lr=1e-3, weight_decay=5e-4)
+optimizer = dict(type='AdamW', lr=1e-4, weight_decay=5e-4)
 optimizer_config = dict()
 # learning policy
 lr_config = dict(
@@ -156,6 +156,8 @@ lr_config = dict(
     warmup='linear',
     warmup_iters=500,
     warmup_ratio=0.1,
-    step=[20, 42, 49, 52])
-runner = dict(type='EpochBasedRunner', max_epochs=55)
+    step=[16, 34, 40, 43],
+    gamma=0.2
+    )
+runner = dict(type='EpochBasedRunner', max_epochs=45)
 cudnn_benchmark = False

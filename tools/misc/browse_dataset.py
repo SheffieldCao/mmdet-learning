@@ -86,48 +86,58 @@ def main():
     dataset = build_dataset(cfg.data.train)
 
     progress_bar = mmcv.ProgressBar(len(dataset))
+    from glob import glob
+    val_split = glob(os.path.join("/mnt/sdf/caoxu/datasets", "demo2/*.png"))
+    names = [os.path.basename(p) for p in val_split]
 
+    total = 0
     for item in dataset:
         filename = os.path.join(args.output_dir,
                                 Path(item['filename']).name
                                 ) if args.output_dir is not None else None
+        if Path(item['filename']).name in names:
+            total+=1
+            gt_bboxes = item['gt_bboxes']
+            gt_labels = item['gt_labels']
+            gt_masks = item.get('gt_masks', None)
+            if gt_masks is not None:
+                gt_masks = mask2ndarray(gt_masks)
 
-        gt_bboxes = item['gt_bboxes']
-        gt_labels = item['gt_labels']
-        gt_masks = item.get('gt_masks', None)
-        if gt_masks is not None:
-            gt_masks = mask2ndarray(gt_masks)
+            gt_seg = item.get('gt_semantic_seg', None)
+            if gt_seg is not None:
+                pad_value = 255  # the padding value of gt_seg
+                sem_labels = np.unique(gt_seg)
+                all_labels = np.concatenate((gt_labels, sem_labels), axis=0)
+                all_labels, counts = np.unique(all_labels, return_counts=True)
+                stuff_labels = all_labels[np.logical_and(counts < 2,
+                                                        all_labels != pad_value)]
+                stuff_masks = gt_seg[None] == stuff_labels[:, None, None]
+                gt_labels = np.concatenate((gt_labels, stuff_labels), axis=0)
+                gt_masks = np.concatenate((gt_masks, stuff_masks.astype(np.uint8)),
+                                        axis=0)
+                # If you need to show the bounding boxes,
+                # please comment the following line
+                gt_bboxes = None
 
-        gt_seg = item.get('gt_semantic_seg', None)
-        if gt_seg is not None:
-            pad_value = 255  # the padding value of gt_seg
-            sem_labels = np.unique(gt_seg)
-            all_labels = np.concatenate((gt_labels, sem_labels), axis=0)
-            all_labels, counts = np.unique(all_labels, return_counts=True)
-            stuff_labels = all_labels[np.logical_and(counts < 2,
-                                                     all_labels != pad_value)]
-            stuff_masks = gt_seg[None] == stuff_labels[:, None, None]
-            gt_labels = np.concatenate((gt_labels, stuff_labels), axis=0)
-            gt_masks = np.concatenate((gt_masks, stuff_masks.astype(np.uint8)),
-                                      axis=0)
-            # If you need to show the bounding boxes,
-            # please comment the following line
-            gt_bboxes = None
+            imshow_det_bboxes(
+                item['img'],
+                gt_bboxes,
+                gt_labels,
+                gt_masks,
+                class_names=dataset.CLASSES,
+                show=not args.not_show,
+                wait_time=args.show_interval,
+                out_file=filename,
+                bbox_color='green',
+                thickness=6,
+                font_size=30,
+                text_color=(250, 250, 250),
+                mask_color=dataset.PALETTE)
 
-        imshow_det_bboxes(
-            item['img'],
-            gt_bboxes,
-            gt_labels,
-            gt_masks,
-            class_names=dataset.CLASSES,
-            show=not args.not_show,
-            wait_time=args.show_interval,
-            out_file=filename,
-            bbox_color=dataset.PALETTE,
-            text_color=(200, 200, 200),
-            mask_color=dataset.PALETTE)
-
+        else:
+            continue
         progress_bar.update()
+    print("total demo2 finished :", total)
 
 
 if __name__ == '__main__':

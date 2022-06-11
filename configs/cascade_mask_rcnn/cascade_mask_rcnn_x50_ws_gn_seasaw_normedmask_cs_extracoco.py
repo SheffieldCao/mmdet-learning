@@ -94,9 +94,7 @@ model = dict(
 
 ## fintune model series URL: <https://github.com/open-mmlab/mmdetection/tree/master/configs/gn%2Bws>_.
 # load_from='https://download.openmmlab.com/mmdetection/v2.0/gn%2Bws/mask_rcnn_x50_32x4d_fpn_gn_ws-all_2x_coco/mask_rcnn_x50_32x4d_fpn_gn_ws-all_2x_coco_20200216-649fdb6f.pth' #noqa
-# load_from = '~/mmdet/outputs/pretrained_models/mask_rcnn_x50_32x4d_fpn_gn_ws-all_2x_coco_20200216-649fdb6f.pth' #noqa
-
-load_from: None
+load_from = '~/mmdet/outputs/pretrained_models/mask_rcnn_x50_32x4d_fpn_gn_ws-all_2x_coco_20200216-649fdb6f.pth' #noqa
 
 # dataset settings
 img_h, img_w = 512, 1024
@@ -145,7 +143,7 @@ data = dict(
     workers_per_gpu=2,
     train=dict(
         type='RepeatDataset',
-        times=8,
+        times=4,
         dataset=dict(
             type=dataset_type,
             ann_file=data_root +
@@ -170,23 +168,16 @@ evaluation = dict(metric=['bbox', 'segm'])
 optimizer = dict(type='AdamW', lr=1e-4, weight_decay=5e-3)
 optimizer_config = dict()
 # learning policy
-# lr_config = dict(
-#     policy='step',
-#     warmup='linear',
-#     warmup_iters=1000,
-#     warmup_ratio=0.1,
-#     step=[30, 61, 71, 76],
-#     gamma=0.2
-#     )
 lr_config = dict(
     policy='step',
     warmup='linear',
     warmup_iters=500,
     warmup_ratio=0.1,
-    step=[19, 25, 28],
-    gamma=0.2)
-runner = dict(type='EpochBasedRunner', max_epochs=50)
+    step=[16, 34, 40, 43],
+    gamma=0.2
+    )
+runner = dict(type='EpochBasedRunner', max_epochs=45)
 cudnn_benchmark = False
 
 # resume
-resume_from = '~/mmdet/outputs/cascade_mask_rcnn_x50_ws_gn_seasaw_normedmask_cs_4x2_1024_extracoco/epoch_40.pth'
+# resume_from = '~/mmdet/outputs/cascade_mask_rcnn_x50_ws_gn_seasaw_normedmask_cs_4x2_1024_extracoco/epoch_40.pth'

@@ -20,15 +20,12 @@ model = dict(
             checkpoint='open-mmlab://jhu/resnext50_32x4d_gn_ws')
     ),
     neck=dict(
-        type='PAUnpackingFPN',
+        type='DAFPN',
         in_channels=[256, 512, 1024, 2048],
         out_channels=256,
         num_outs=5,
-        add_extra_convs=False,
-        relu_before_extra_convs=False,
-        conv_cfg=conv_cfg,
-        norm_cfg=norm_cfg,
-        act_cfg=dict(type='GELU'),
+        pa_levels=[2,3],
+        add_extra_convs=True,
         ),
 )
 
@@ -55,11 +52,11 @@ lr_config = dict(
     warmup='linear',
     warmup_iters=500,
     warmup_ratio=0.1,
-    step=[16, 34, 40, 43],
+    step=[16, 28, 40, 43],
     gamma=0.2
     )
 runner = dict(type='EpochBasedRunner', max_epochs=45)
 cudnn_benchmark = False
 
 # resume
-# resume_from = '~/mmdet/outputs/cascade_mask_rcnn_x50_ws_gn_cs_4x3_1024_1e-4/epoch_7.pth'
+resume_from = '~/mmdet/outputs/cmr_x50_da2to3_fpn_6x2_1024_1e-4/epoch_24.pth'

@@ -3,32 +3,33 @@ _base_ = [ './cascade_mask_rcnn_r50_fpn_cs.py']
 # model settings
 conv_cfg = dict(type='ConvWS')
 norm_cfg = dict(type='GN', num_groups=32, requires_grad=True)
+pretrained = 'https://github.com/SwinTransformer/storage/releases/download/v1.0.0/swin_tiny_patch4_window7_224.pth'  # noqa
+
 model = dict(
+    type='CascadeRCNN',
     backbone=dict(
-        type='ResNeXt',
-        depth=50,
-        groups=32,
-        base_width=4,
-        num_stages=4,
+        _delete_=True,
+        type='SwinTransformer',
+        embed_dims=96,
+        depths=[2, 2, 6, 2],
+        num_heads=[3, 6, 12, 24],
+        window_size=7,
+        mlp_ratio=4,
+        qkv_bias=True,
+        qk_scale=None,
+        drop_rate=0.,
+        attn_drop_rate=0.,
+        drop_path_rate=0.2,
+        patch_norm=True,
         out_indices=(0, 1, 2, 3),
-        frozen_stages=1,
-        style='pytorch',
-        conv_cfg=conv_cfg,
-        norm_cfg=norm_cfg,
-        init_cfg=dict(
-            type='Pretrained',
-            checkpoint='open-mmlab://jhu/resnext50_32x4d_gn_ws')
-    ),
+        with_cp=False,
+        convert_weights=True,
+        init_cfg=dict(type='Pretrained', checkpoint=pretrained)),
     neck=dict(
-        type='PAUnpackingFPN',
-        in_channels=[256, 512, 1024, 2048],
+        type='FPN',
+        in_channels=[96, 192, 384, 768],
         out_channels=256,
         num_outs=5,
-        add_extra_convs=False,
-        relu_before_extra_convs=False,
-        conv_cfg=conv_cfg,
-        norm_cfg=norm_cfg,
-        act_cfg=dict(type='GELU'),
         ),
 )
 
@@ -62,4 +63,4 @@ runner = dict(type='EpochBasedRunner', max_epochs=45)
 cudnn_benchmark = False
 
 # resume
-# resume_from = '~/mmdet/outputs/cascade_mask_rcnn_x50_ws_gn_cs_4x3_1024_1e-4/epoch_7.pth'
+resume_from = "~/mmdet/outputs/cmr_swint_fpn_6x2_1024_1e-4/epoch_22.pth"

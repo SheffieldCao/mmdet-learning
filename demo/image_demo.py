@@ -4,11 +4,14 @@ from argparse import ArgumentParser
 
 from mmdet.apis import (async_inference_detector, inference_detector,
                         init_detector, show_result_pyplot)
-
+import mmcv
+from glob import glob
+import os
+from tqdm import tqdm
 
 def parse_args():
     parser = ArgumentParser()
-    parser.add_argument('img', help='Image file')
+    # parser.add_argument('--img', help='Image file')
     parser.add_argument('config', help='Config file')
     parser.add_argument('checkpoint', help='Checkpoint file')
     parser.add_argument(
@@ -27,19 +30,29 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-
-def main(args):
-    # build the model from a config file and a checkpoint file
+def main_imgs(args):
     model = init_detector(args.config, args.checkpoint, device=args.device)
-    # test a single image
-    result = inference_detector(model, args.img)
-    # show the results
-    show_result_pyplot(
-        model,
-        args.img,
-        result,
-        palette=args.palette,
-        score_thr=args.score_thr)
+    prefix = "/mnt/sdf/caoxu/mmdet/cityscapes"
+    out_prefix = "/mnt/sdf/caoxu/mmdet/cityscapes/video_demo_results/ins"
+    imgs = glob(os.path.join(prefix,'video_demo_darmstadt/*'))
+    for img in tqdm(imgs):
+        out_file = os.path.join(out_prefix, os.path.basename(img))
+        result = inference_detector(model, img)
+        # show the results
+        show_result_pyplot(model, img, result, out_file)
+
+# def main(args):
+#     # build the model from a config file and a checkpoint file
+#     model = init_detector(args.config, args.checkpoint, device=args.device)
+#     # test a single image
+#     result = inference_detector(model, args.img)
+#     # show the results
+#     show_result_pyplot(
+#         model,
+#         args.img,
+#         result,
+#         palette=args.palette,
+#         score_thr=args.score_thr)
 
 
 async def async_main(args):
@@ -59,7 +72,8 @@ async def async_main(args):
 
 if __name__ == '__main__':
     args = parse_args()
-    if args.async_test:
-        asyncio.run(async_main(args))
-    else:
-        main(args)
+    # if args.async_test:
+    #     asyncio.run(async_main(args))
+    # else:
+    #     main(args)
+    main_imgs(args)

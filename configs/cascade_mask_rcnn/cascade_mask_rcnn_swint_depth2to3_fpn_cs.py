@@ -26,11 +26,11 @@ model = dict(
         convert_weights=True,
         init_cfg=dict(type='Pretrained', checkpoint=pretrained)),
     neck=dict(
-        type='PADepthAwareFPN',
+        type='DepthAwareFPN',
         in_channels=[96, 192, 384, 768],
         out_channels=256,
         num_outs=5,
-        depth_aware_levels=[2]
+        depth_aware_levels=[2,3]
         ),
 )
 
@@ -64,4 +64,4 @@ runner = dict(type='EpochBasedRunner', max_epochs=45)
 cudnn_benchmark = False
 
 # resume
-# resume_from = '~/mmdet/outputs/cascade_mask_rcnn_x50_ws_gn_cs_4x3_1024_1e-4/epoch_7.pth'
+resume_from = '~/mmdet/outputs/cmr_swint_depth2to3_fpn_6x2_1024_1e-4/epoch_22.pth'
