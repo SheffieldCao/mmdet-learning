@@ -1,4 +1,4 @@
-# Joint Learnning of Instance Segmentation and Depth Estimation
+# Instance Segmentation and Object Detection Learning
   <img src="https://user-images.githubusercontent.com/12907710/137271636-56ba1cd2-b110-4812-8221-b4c120320aa9.png"/>
 
 [toc]
@@ -88,77 +88,6 @@ Results and models are available in the [model zoo](docs/en/model_zoo.md).
 </table>
 
 Some other methods are also supported in [projects using MMDetection](./docs/en/projects.md).
-
-## Experiments
-
-### 1. X50 GN & WS
-
-通过引入ResNeXt50，结合 group norm 以及 weight standard。提升效果
-
-### 2. GPWin + SFP `(0421)`
-
-Refer to [Exploring Plain Vision Transformer Backbones for Object Detection](https://arxiv.org/abs/2203.16527).
-
-### 3. OHEM 难样本挖掘 `(0426)`
-
-直接在原有的 (RandomSampler) 基础上设定 OHEM 采样器即可。
-```python
-model = dict(
-  train_cfg=dict(
-    rcnn=dict(
-      sampler=dict(type='OHEMSampler')
-    )
-  )
-)
-```
-
-### 4. $2 \times WinBlock \to WinBlock+SwinBlock$ `(0427)`
-
-### 5. DCNv2 in SFP and GPBlock `(0427)`
-DCV v2 的实现配置
-```python
-model = dict(
-    backbone=dict(
-        dcn=dict(type='DCNv2', deform_groups=1, fallback_on_stride=False),
-        stage_with_dcn=(False, True, True, True)))
-```
-- 考虑在 X50 backbone 中使用 `DCNv2`
-- 考虑在 GPWin/GPSwin 中的GPModule使用 `DCNv2`
-
-### 6. Cascade Mask RCNN `(0503)`
-
-### 7. Seasaw loss `(0504)`
-[seesaw_loss](configs/_others_/seesaw_loss/cascade_mask_rcnn_r101_fpn_random_seesaw_loss_mstrain_2x_lvis_v1.py)
-
-### 8. NAS-FPN (Neural Architecture Search - FPN) `(0504)`
-
-### N. Results
-
-:sunglasses:
-
-| Meta Arch | Backbone |  epochs  |  lr  |w/ COCO pretrain|  **OHEM**  | RPN hidden layers | DCN(X50/GP) | bbox mAP  |  Mask mAP |
-|:---------:|----------|:--------:|:----:|:--------------:|:----------:|:-----------------:|:-----------:|:---------:|:---------:|
-|Mask RCNN  | X50+FPN          |  55  | 1e-3 |  Y   |   N  |  1  |  N  |  **0.369**  |  **0.33**   |
-|| X50+FPN          |  55  | 1e-3 |  N   |   N  |  1  |  N  |  0.363  |  0.315  |
-|| X50+FPN(e29 Finetune)|  30  | 1e-3 |  Y   |   Y  |  1  |  N  |  0.365  |  0.325   |
-|| X50+FPN(e29 Finetune)|  30  | 1e-4 |  Y   |   Y  |  1  |  N  |  ?  |  ?   |
-|| X50+FPN(e55 Finetune)|  30  | 1e-4 |  Y   |   Y  |  1  |  N  |  0.365  |  0.325   |
-|| X50+FPN(e55 Finetune)|  30  | 1e-4 |  N   |   Y  |  1  |  N  |  0.358  |  0.306   |
-|| **R50+FPN**          |  80  | 1e-3 |  N   |   Y  |  2  |  Y  |  0.364  |  0.311   |
-
-| Meta Arch | Backbone |  epochs  |  lr  |w/ COCO pretrain|  **OHEM**  | RPN hidden layers | DCN(X50/GP) | bbox mAP  |  Mask mAP |
-|:---------:|:--------:|:----:|:--------------:|:----------:|:-----------------:|:-----------:|:---------:|:---------:|:---------:|
-|Cascade Mask RCNN| X50+FPN          |  55  | 1e-3 |  Y   |   N  |  1  |  N  |  **0.369**  |  **0.33**   |
-
-
-**Deprecated Exps** 😢
-| Meta Arch | Backbone |  epochs  |  lr  |w/ COCO pretrain|  **OHEM**  | RPN hidden layers | DCN(X50/GP) | bbox mAP  |  Mask mAP |
-|:---------:|----------|:--------:|:----:|:--------------:|:----------:|:-----------------:|:-----------:|:---------:|:---------:|
-|Mask RCNN  | GPWin+SFP        |  30  | 1e-3 |  N   |   N  |  1  |  N  |  0.215  |  0.177  |
-|| GPWin+SFP        |  30  | 1e-3 |  N   |   N  |  1  |  N  |  0.215  |  0.177  |
-|| GPWin+SFP        |  30  | 1e-3 |  N   |   Y  |  2  |  Y  |  ?  |  ?   |
-|| GPWin+SFP        |  30  | 1e-3 |  N   |   N  |  1  |  N  |  0.215  |  0.177  |
-|| GPWin+SFP        |  30  | 1e-3 |  N   |   Y  |  2  |  Y  |  ?  |  ?   |
 
 ## License
 
